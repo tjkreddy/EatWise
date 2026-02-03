@@ -2,7 +2,9 @@
 
 ### Project Description
 
-* PantryPal is a high-performance, privacy-focused web application for kitchen management designed to reduce food waste and simplify meal planning. Built with a robust Go backend and a type-safe TypeScript frontend, the platform allows users to track inventory, monitor expiration dates via real-time notifications, and manage household supplies across multiple users. By leveraging a monorepo architecture.
+- PantryPal is a smart kitchen management web application built to reduce food waste and make everyday meal planning effortless. It helps users keep track of pantry inventory, monitor expiration dates, and manage household supplies in one place—so nothing gets forgotten or thrown away unnecessarily.
+
+- The platform supports real-time expiration alerts, multi-user household management, and shared inventory tracking, making it ideal for families and shared living spaces.
 ---
 
 ## Members
@@ -14,6 +16,7 @@
 
 
 ---
+
 
 
 
