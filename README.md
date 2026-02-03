@@ -5,20 +5,15 @@ PantryPal is a high-performance, privacy-focused kitchen management web applicat
 
 By leveraging a monorepo architecture, PantryPal demonstrates modern software engineering principles including concurrent background workers for expiry checks, role-based access control, and a responsive, mobile-first user interface.
 
-### Tech Stack
-* **Frontend:** TypeScript, Next.js, Tailwind CSS
-* **Backend:** Go (Golang), Gin Gonic
-* **Database:** PostgreSQL
-* **Real-time:** WebSockets
+---
+
+##  Members
+* **Jugal Kishore Reddy Thangella** 
+* **Sadhvini Boyanapally** 
+* **Hasini jevaji**
+* **Krishna chaitanya padigela**
 
 ---
 
-## 👥 Members
-* **[Your Name]** - Lead Software Engineer (Backend & Architecture)
-* **[Member 2 Name]** - Frontend Developer & UI/UX
-* **[Member 3 Name]** - Database Administrator & DevOps
 
----
 
-## 🚀 Getting Started
-(Coming Soon: Instructions for running the Go server and Next.js frontend locally.)
