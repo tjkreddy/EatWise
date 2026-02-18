@@ -1,0 +1,18 @@
+{
+  "name": "eatwise-app",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build:web": "npm run build --workspace=apps/web",
+    "dev:api": "cd apps/api && go run main.go",
+    "dev": "concurrently \"npm run dev:web\" \"npm run dev:api\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
