@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { authAPI } from "../lib/authAPI";
 import type {
@@ -14,76 +14,43 @@ const Dashboard: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [pantryItems, setPantryItems] = useState<PantryItem[]>([
-    {
-      id: 1,
-      name: "Milk",
-      quantity: 2,
-      unit: "liters",
-      category: "Dairy",
-      expirationDate: "2025-02-25",
-      addedDate: "2025-02-18",
-      notes: "Whole milk",
-    },
-    {
-      id: 2,
-      name: "Tomatoes",
-      quantity: 4,
-      unit: "pieces",
-      category: "Vegetables",
-      expirationDate: "2025-02-22",
-      addedDate: "2025-02-16",
-      notes: "Fresh from market",
-    },
-    {
-      id: 3,
-      name: "Bread",
-      quantity: 1,
-      unit: "loaf",
-      category: "Bakery",
-      expirationDate: "2025-02-20",
-      addedDate: "2025-02-18",
-      notes: "Whole wheat",
-    },
-    {
-      id: 4,
-      name: "Chicken Breast",
-      quantity: 500,
-      unit: "grams",
-      category: "Meat",
-      expirationDate: "2025-02-24",
-      addedDate: "2025-02-17",
-      notes: "Frozen",
-    },
-  ]);
-
-  const [alerts] = useState<AlertItem[]>([
-    {
-      id: 1,
-      itemId: 3,
-      itemName: "Bread",
-      expirationDate: "2025-02-20",
-      daysUntilExpiry: 2,
-      severity: "critical",
-    },
-    {
-      id: 2,
-      itemId: 2,
-      itemName: "Tomatoes",
-      expirationDate: "2025-02-22",
-      daysUntilExpiry: 4,
-      severity: "warning",
-    },
-  ]);
+  const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
 
   const [members, setMembers] = useState<HouseholdMember[]>([]);
 
-  const stats: DashboardStats = {
-    totalItems: pantryItems.length,
-    expiringInWeek: alerts.length,
-    expiredItems: 0,
-    householdMembers: members.length,
-  };
+  const alerts = useMemo<AlertItem[]>(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return pantryItems
+      .filter((item) => item.expirationDate)
+      .map((item) => {
+        const expiry = new Date(item.expirationDate as string);
+        const daysUntilExpiry = Math.ceil(
+          (expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+        );
+        let severity: AlertItem["severity"] = "info";
+        if (daysUntilExpiry <= 2) severity = "critical";
+        else if (daysUntilExpiry <= 7) severity = "warning";
+        return {
+          id: item.id,
+          itemId: item.id,
+          itemName: item.name,
+          expirationDate: item.expirationDate as string,
+          daysUntilExpiry,
+          severity,
+        };
+      });
+  }, [pantryItems]);
+
+  const stats = useMemo<DashboardStats>(() => {
+    const expiredItems = alerts.filter((a) => a.daysUntilExpiry < 0).length;
+    return {
+      totalItems: pantryItems.length,
+      expiringInWeek: alerts.length,
+      expiredItems,
+      householdMembers: members.length,
+    };
+  }, [alerts, members.length, pantryItems.length]);
 
   // Check user and handle redirects
   useEffect(() => {
@@ -109,6 +76,43 @@ const Dashboard: React.FC = () => {
     };
     checkUser();
   }, [navigate]);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchItems = async () => {
+      try {
+        const token = authAPI.getToken();
+        const response = await fetch("http://localhost:8080/api/pantry/items", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!response.ok) {
+          throw new Error("Failed to fetch pantry items");
+        }
+        const items = await response.json();
+        const mappedItems: PantryItem[] = (items || []).map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          unit: item.unit || undefined,
+          category: item.category || undefined,
+          expirationDate:
+            item.expiration_date || item.expirationDate || undefined,
+          addedDate: item.created_at
+            ? String(item.created_at).split("T")[0]
+            : item.addedDate,
+          notes: item.notes || undefined,
+        }));
+        setPantryItems(mappedItems);
+      } catch (error) {
+        console.error("Error fetching pantry items:", error);
+      }
+    };
+    fetchItems();
+  }, [user]);
 
   const handleLogout = () => {
     authAPI.logout();
@@ -147,26 +151,104 @@ const Dashboard: React.FC = () => {
           (item) => (item.category || "Uncategorized") === selectedCategory,
         );
 
-  const handleDelete = (id: number) => {
-    setPantryItems(pantryItems.filter((item) => item.id !== id));
+  const handleDelete = async (id: number) => {
+    try {
+      const token = authAPI.getToken();
+      const response = await fetch(
+        `http://localhost:8080/api/pantry/items/${id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to delete item");
+      }
+
+      setPantryItems(pantryItems.filter((item) => item.id !== id));
+    } catch (error) {
+      console.error("Error deleting item:", error);
+      alert("Failed to delete item from pantry");
+    }
   };
 
-  const handleAddItem = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddItem = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const newItem: PantryItem = {
-      id: Math.max(0, ...pantryItems.map((i) => i.id)) + 1,
+    const newItem = {
       name: formData.get("name") as string,
       quantity: parseInt(formData.get("quantity") as string),
       unit: formData.get("unit") as string,
       category: formData.get("category") as string,
       expirationDate: (formData.get("expirationDate") as string) || undefined,
       notes: (formData.get("notes") as string) || undefined,
-      addedDate: new Date().toISOString().split("T")[0],
     };
-    setPantryItems([...pantryItems, newItem]);
-    setShowAddForm(false);
-    (e.target as HTMLFormElement).reset();
+
+    if (!newItem.name?.trim()) {
+      alert("Name is required");
+      return;
+    }
+
+    if (Number.isNaN(newItem.quantity)) {
+      alert("Quantity is required");
+      return;
+    }
+
+    try {
+      const token = authAPI.getToken();
+      if (!token) {
+        alert("You must be logged in to add items");
+        return;
+      }
+      const response = await fetch("http://localhost:8080/api/pantry/items", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: newItem.name,
+          quantity: newItem.quantity,
+          unit: newItem.unit,
+          category: newItem.category,
+          expiration_date: newItem.expirationDate || "",
+          notes: newItem.notes,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `Failed to add item (${response.status})`);
+      }
+
+      const savedItem = await response.json();
+      const mappedItem: PantryItem = {
+        id: savedItem.id || 0,
+        name: savedItem.name || newItem.name,
+        quantity: savedItem.quantity ?? newItem.quantity,
+        unit: savedItem.unit || newItem.unit,
+        category: savedItem.category || newItem.category,
+        expirationDate:
+          savedItem.expiration_date ||
+          savedItem.expirationDate ||
+          newItem.expirationDate,
+        addedDate: savedItem.created_at
+          ? String(savedItem.created_at).split("T")[0]
+          : new Date().toISOString().split("T")[0],
+        notes: savedItem.notes || newItem.notes,
+      };
+      setPantryItems([...pantryItems, mappedItem]);
+      setShowAddForm(false);
+      (e.target as HTMLFormElement).reset();
+    } catch (error) {
+      console.error("Error adding item:", error);
+      alert(
+        error instanceof Error ? error.message : "Failed to add item to pantry",
+      );
+    }
   };
 
   const getExpiryStatus = (expirationDate?: string) => {
@@ -231,7 +313,9 @@ const Dashboard: React.FC = () => {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <span className="text-2xl font-bold text-amber-600">EatWise</span>
+                <span className="text-2xl font-bold text-amber-600">
+                  EatWise
+                </span>
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -264,15 +348,21 @@ const Dashboard: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <div className="bg-gray-50 rounded p-6">
               <p className="text-gray-600 text-sm font-medium">Total Items</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalItems}</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2">
+                {stats.totalItems}
+              </p>
             </div>
             <div className="bg-gray-50 rounded p-6">
               <p className="text-gray-600 text-sm font-medium">Expiring Soon</p>
-              <p className="text-3xl font-bold text-orange-600 mt-2">{stats.expiringInWeek}</p>
+              <p className="text-3xl font-bold text-orange-600 mt-2">
+                {stats.expiringInWeek}
+              </p>
             </div>
             <div className="bg-gray-50 rounded p-6">
               <p className="text-gray-600 text-sm font-medium">Expired Items</p>
-              <p className="text-3xl font-bold text-red-600 mt-2">{stats.expiredItems}</p>
+              <p className="text-3xl font-bold text-red-600 mt-2">
+                {stats.expiredItems}
+              </p>
             </div>
             <div className="bg-gray-50 rounded p-6">
               <p className="text-gray-600 text-sm font-semibold uppercase">
@@ -304,10 +394,14 @@ const Dashboard: React.FC = () => {
                     onSubmit={handleAddItem}
                     className="mb-6 p-6 bg-white rounded border-2 border-amber-200"
                   >
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Item</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                      Add New Item
+                    </h3>
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       <div className="col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Item Name *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Item Name *
+                        </label>
                         <input
                           name="name"
                           placeholder="e.g., Milk, Tomatoes"
@@ -316,7 +410,9 @@ const Dashboard: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Quantity *
+                        </label>
                         <input
                           name="quantity"
                           type="number"
@@ -326,8 +422,13 @@ const Dashboard: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Unit *</label>
-                        <select name="unit" className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Unit *
+                        </label>
+                        <select
+                          name="unit"
+                          className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                        >
                           <option>pieces</option>
                           <option>grams</option>
                           <option>kilograms</option>
@@ -336,7 +437,9 @@ const Dashboard: React.FC = () => {
                         </select>
                       </div>
                       <div className="col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Category
+                        </label>
                         <select
                           name="category"
                           className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
@@ -353,7 +456,9 @@ const Dashboard: React.FC = () => {
                         </select>
                       </div>
                       <div className="col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Expiration Date</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Expiration Date
+                        </label>
                         <input
                           name="expirationDate"
                           type="date"
@@ -361,7 +466,9 @@ const Dashboard: React.FC = () => {
                         />
                       </div>
                       <div className="col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Notes
+                        </label>
                         <textarea
                           name="notes"
                           placeholder="Optional notes"
