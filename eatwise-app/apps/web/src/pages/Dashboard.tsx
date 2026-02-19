@@ -302,66 +302,85 @@ const Dashboard: React.FC = () => {
                 {showAddForm && (
                   <form
                     onSubmit={handleAddItem}
-                    className="mb-6 p-4 bg-gray-50 rounded border border-gray-300"
+                    className="mb-6 p-6 bg-white rounded border-2 border-amber-200"
                   >
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      <input
-                        name="name"
-                        placeholder="Item name"
-                        className="col-span-2 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white text-sm"
-                        required
-                      />
-                      <input
-                        name="quantity"
-                        type="number"
-                        placeholder="Quantity"
-                        className="p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white text-sm"
-                        required
-                      />
-                      <select name="unit" className="p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white text-sm">
-                        <option>pieces</option>
-                        <option>grams</option>
-                        <option>kilograms</option>
-                        <option>liters</option>
-                        <option>cups</option>
-                      </select>
-                      <select
-                        name="category"
-                        className="col-span-2 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white text-sm"
-                      >
-                        <option value="Uncategorized">Uncategorized</option>
-                        <option>Dairy</option>
-                        <option>Vegetables</option>
-                        <option>Bakery</option>
-                        <option>Meat</option>
-                        <option>Beverages</option>
-                        <option>Fruits</option>
-                        <option>Pantry</option>
-                        <option>Frozen</option>
-                      </select>
-                      <input
-                        name="expirationDate"
-                        type="date"
-                        className="col-span-2 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
-                      />
-                      <textarea
-                        name="notes"
-                        placeholder="Notes (optional)"
-                        className="col-span-2 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white text-sm"
-                        rows={2}
-                      ></textarea>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Item</h3>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Item Name *</label>
+                        <input
+                          name="name"
+                          placeholder="e.g., Milk, Tomatoes"
+                          className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
+                        <input
+                          name="quantity"
+                          type="number"
+                          placeholder="Amount"
+                          className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Unit *</label>
+                        <select name="unit" className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                          <option>pieces</option>
+                          <option>grams</option>
+                          <option>kilograms</option>
+                          <option>liters</option>
+                          <option>cups</option>
+                        </select>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                        <select
+                          name="category"
+                          className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                        >
+                          <option value="Uncategorized">Uncategorized</option>
+                          <option>Dairy</option>
+                          <option>Vegetables</option>
+                          <option>Bakery</option>
+                          <option>Meat</option>
+                          <option>Beverages</option>
+                          <option>Fruits</option>
+                          <option>Pantry</option>
+                          <option>Frozen</option>
+                        </select>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Expiration Date</label>
+                        <input
+                          name="expirationDate"
+                          type="date"
+                          className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                        <textarea
+                          name="notes"
+                          placeholder="Optional notes"
+                          className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+                          rows={2}
+                        ></textarea>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-3">
                       <button
                         type="submit"
-                        className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded font-medium transition"
+                        className="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-2.5 rounded font-semibold transition"
                       >
                         Add Item
                       </button>
                       <button
                         type="button"
                         onClick={() => setShowAddForm(false)}
-                        className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 rounded font-medium transition"
+                        className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2.5 rounded font-semibold transition"
                       >
                         Cancel
                       </button>

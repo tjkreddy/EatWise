@@ -3,7 +3,22 @@ import { Link } from "react-router-dom";
 
 const LandingPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
+      {/* Navbar */}
+      <nav className="bg-white border-b border-gray-200 py-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+          <div className="text-2xl font-bold text-amber-600">EatWise</div>
+          <div className="flex gap-4">
+            <Link to="/login" className="border border-amber-600 text-amber-600 hover:bg-amber-50 px-4 py-2 rounded font-medium transition">
+              Login
+            </Link>
+            <Link to="/signup" className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded font-medium">
+              Sign Up
+            </Link>
+          </div>
+        </div>
+      </nav>
+
       {/* Hero Section */}
       <div
         className="relative bg-cover bg-center h-screen flex items-center justify-center text-white p-4"
@@ -14,10 +29,10 @@ const LandingPage: React.FC = () => {
       >
         <div className="absolute inset-0 bg-black opacity-60"></div>
         <div className="relative z-10 text-center max-w-3xl">
-          <h1 className="text-5xl md:text-6xl font-extrabold leading-tight mb-4 animate-fade-in-down text-amber-300">
+          <h1 className="text-5xl md:text-6xl font-extrabold leading-tight mb-4 text-amber-300">
             EatWise: Smart Kitchen, Zero Waste.
           </h1>
-          <p className="text-xl md:text-2xl mb-8 animate-fade-in-up text-amber-100">
+          <p className="text-xl md:text-2xl mb-8 text-amber-100">
             Effortless pantry management, expiration tracking, and meal planning
             to reduce food waste and save money.
           </p>
@@ -39,37 +54,32 @@ const LandingPage: React.FC = () => {
       </div>
 
       {/* Feature Section */}
-      <div className="py-16 bg-white">
+      <div className="py-20 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl font-extrabold text-gray-900 mb-12">
+          <h2 className="text-4xl font-bold text-gray-900 mb-4">
             How EatWise Transforms Your Kitchen
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-            <div className="p-6 bg-gray-50 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
-              <img
-                src="https://picsum.photos/300/200?random=1"
-                alt="Smart Inventory"
-                className="w-full h-48 object-cover rounded-lg mb-4"
-              />
-              <h3 className="text-2xl font-bold text-gray-800 mb-4">
+          <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto">
+            Manage your pantry smarter and reduce food waste
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+            <div className="bg-white p-8 rounded-lg border border-gray-200 hover:border-amber-300 transition">
+              <div className="text-5xl mb-4">📦</div>
+              <h3 className="text-2xl font-semibold text-gray-900 mb-3">
                 Smart Inventory
               </h3>
-              <p className="text-gray-600">
+              <p className="text-gray-600 leading-relaxed">
                 Keep track of every item in your pantry and fridge with ease.
                 Never forget what you have again.
               </p>
             </div>
 
-            <div className="p-6 bg-gray-50 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
-              <img
-                src="https://picsum.photos/300/200?random=3"
-                alt="Meal Planning"
-                className="w-full h-48 object-cover rounded-lg mb-4"
-              />
-              <h3 className="text-2xl font-bold text-gray-800 mb-4">
+            <div className="bg-white p-8 rounded-lg border border-gray-200 hover:border-amber-300 transition">
+              <div className="text-5xl mb-4">🍳</div>
+              <h3 className="text-2xl font-semibold text-gray-900 mb-3">
                 Meal Planning
               </h3>
-              <p className="text-gray-600">
+              <p className="text-gray-600 leading-relaxed">
                 Plan your meals efficiently based on your current inventory and
                 upcoming expiration dates.
               </p>
@@ -79,23 +89,192 @@ const LandingPage: React.FC = () => {
       </div>
 
       {/* About Section */}
-      <div className="py-16 bg-gray-100">
+      <div className="py-20 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl font-extrabold text-gray-900 mb-8">
-            About EatWise
+          <h2 className="text-4xl font-bold text-gray-900 mb-6">
+            Why EatWise?
           </h2>
-          <p className="text-xl text-gray-700 max-w-3xl mx-auto leading-relaxed">
-            EatWise is dedicated to revolutionizing kitchen management. Our
-            mission is to empower households to make smarter food choices,
-            reduce their environmental footprint by cutting down on waste, and
-            ultimately save money. Join our community and experience the future
-            of sustainable living.
+          <p className="text-lg text-gray-600 max-w-3xl mx-auto leading-relaxed">
+            EatWise empowers households to make smarter food choices, reduce their environmental footprint by cutting down on waste, and ultimately save money. Join our community and experience the future of sustainable living.
           </p>
         </div>
       </div>
 
+      {/* Stats Section */}
+      <div className="py-20 bg-gray-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-4xl font-bold text-gray-900 mb-12 text-center">
+            Impact by the Numbers
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+            <div className="bg-white p-8 rounded-lg border border-gray-200">
+              <div className="text-6xl font-bold text-amber-600 mb-3">1/3</div>
+              <p className="text-gray-600 text-lg">
+                of food is wasted at home. We help you prevent that.
+              </p>
+            </div>
+            <div className="bg-white p-8 rounded-lg border border-gray-200">
+              <div className="text-6xl font-bold text-amber-600 mb-3">$1,500</div>
+              <p className="text-gray-600 text-lg">
+                Average family saves per year by reducing food waste.
+              </p>
+            </div>
+            <div className="bg-white p-8 rounded-lg border border-gray-200">
+              <div className="text-6xl font-bold text-amber-600 mb-3">100%</div>
+              <p className="text-gray-600 text-lg">
+                Free to use. No hidden costs or premium features.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* How It Works */}
+      <div className="py-20 bg-white">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-4xl font-bold text-gray-900 mb-12 text-center">
+            How It Works
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="text-center">
+              <div className="bg-amber-100 text-amber-700 rounded-full w-20 h-20 flex items-center justify-center text-3xl font-bold mx-auto mb-4">
+                1
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Create Account
+              </h3>
+              <p className="text-gray-600 text-sm">
+                Sign up in seconds to get started managing your pantry.
+              </p>
+            </div>
+            <div className="text-center">
+              <div className="bg-amber-100 text-amber-700 rounded-full w-20 h-20 flex items-center justify-center text-3xl font-bold mx-auto mb-4">
+                2
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Add Items
+              </h3>
+              <p className="text-gray-600 text-sm">
+                Log your groceries and set expiration dates easily.
+              </p>
+            </div>
+            <div className="text-center">
+              <div className="bg-amber-100 text-amber-700 rounded-full w-20 h-20 flex items-center justify-center text-3xl font-bold mx-auto mb-4">
+                3
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Get Ideas
+              </h3>
+              <p className="text-gray-600 text-sm">
+                Receive meal ideas based on what you have.
+              </p>
+            </div>
+            <div className="text-center">
+              <div className="bg-amber-100 text-amber-700 rounded-full w-20 h-20 flex items-center justify-center text-3xl font-bold mx-auto mb-4">
+                4
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Save & Share
+              </h3>
+              <p className="text-gray-600 text-sm">
+                Track savings and collaborate with others.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Benefits Section */}
+      <div className="py-20 bg-gray-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-4xl font-bold text-gray-900 mb-12 text-center">
+            Why Choose EatWise?
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+            <div className="flex gap-4">
+              <div className="flex-shrink-0">
+                <div className="flex items-center justify-center h-10 w-10 rounded bg-amber-600 text-white font-bold">
+                  ✓
+                </div>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Save Money
+                </h3>
+                <p className="mt-1 text-gray-600">
+                  Reduce waste and make the most of your groceries.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <div className="flex-shrink-0">
+                <div className="flex items-center justify-center h-10 w-10 rounded bg-amber-600 text-white font-bold">
+                  ✓
+                </div>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Help the Environment
+                </h3>
+                <p className="mt-1 text-gray-600">
+                  Every item tracked is a step towards sustainability.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <div className="flex-shrink-0">
+                <div className="flex items-center justify-center h-10 w-10 rounded bg-amber-600 text-white font-bold">
+                  ✓
+                </div>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Easy to Use
+                </h3>
+                <p className="mt-1 text-gray-600">
+                  Intuitive interface that anyone can master in minutes.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <div className="flex-shrink-0">
+                <div className="flex items-center justify-center h-10 w-10 rounded bg-amber-600 text-white font-bold">
+                  ✓
+                </div>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Family Friendly
+                </h3>
+                <p className="mt-1 text-gray-600">
+                  Invite household members and collaborate together.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* CTA Section */}
+      <div className="py-20 bg-amber-600">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-4xl font-bold text-white mb-4">
+            Ready to Transform Your Kitchen?
+          </h2>
+          <p className="text-lg text-amber-100 mb-8">
+            Start your journey towards smarter shopping and zero waste today.
+          </p>
+          <Link
+            to="/signup"
+            className="bg-white hover:bg-gray-100 text-amber-600 font-bold py-3 px-8 rounded transition inline-block"
+          >
+            Get Started Free
+          </Link>
+        </div>
+      </div>
+
       {/* Footer */}
-      <footer className="bg-gray-800 text-white py-8">
+      <footer className="bg-gray-900 text-gray-400 py-8">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p>&copy; {new Date().getFullYear()} EatWise. All rights reserved.</p>
         </div>
