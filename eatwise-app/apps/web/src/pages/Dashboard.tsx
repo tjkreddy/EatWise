@@ -1,50 +1,59 @@
-import React, { useState } from 'react';
-import type { PantryItem, AlertItem, DashboardStats, HouseholdMember } from '../types';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { authAPI } from "../lib/authAPI";
+import type {
+  PantryItem,
+  AlertItem,
+  DashboardStats,
+  HouseholdMember,
+} from "../types";
 
 const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [showAddForm, setShowAddForm] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [pantryItems, setPantryItems] = useState<PantryItem[]>([
     {
       id: 1,
-      name: 'Milk',
+      name: "Milk",
       quantity: 2,
-      unit: 'liters',
-      category: 'Dairy',
-      expirationDate: '2025-02-25',
-      addedDate: '2025-02-18',
-      notes: 'Whole milk'
+      unit: "liters",
+      category: "Dairy",
+      expirationDate: "2025-02-25",
+      addedDate: "2025-02-18",
+      notes: "Whole milk",
     },
     {
       id: 2,
-      name: 'Tomatoes',
+      name: "Tomatoes",
       quantity: 4,
-      unit: 'pieces',
-      category: 'Vegetables',
-      expirationDate: '2025-02-22',
-      addedDate: '2025-02-16',
-      notes: 'Fresh from market'
+      unit: "pieces",
+      category: "Vegetables",
+      expirationDate: "2025-02-22",
+      addedDate: "2025-02-16",
+      notes: "Fresh from market",
     },
     {
       id: 3,
-      name: 'Bread',
+      name: "Bread",
       quantity: 1,
-      unit: 'loaf',
-      category: 'Bakery',
-      expirationDate: '2025-02-20',
-      addedDate: '2025-02-18',
-      notes: 'Whole wheat'
+      unit: "loaf",
+      category: "Bakery",
+      expirationDate: "2025-02-20",
+      addedDate: "2025-02-18",
+      notes: "Whole wheat",
     },
     {
       id: 4,
-      name: 'Chicken Breast',
+      name: "Chicken Breast",
       quantity: 500,
-      unit: 'grams',
-      category: 'Meat',
-      expirationDate: '2025-02-24',
-      addedDate: '2025-02-17',
-      notes: 'Frozen'
+      unit: "grams",
+      category: "Meat",
+      expirationDate: "2025-02-24",
+      addedDate: "2025-02-17",
+      notes: "Frozen",
     },
   ]);
 
@@ -52,37 +61,37 @@ const Dashboard: React.FC = () => {
     {
       id: 1,
       itemId: 3,
-      itemName: 'Bread',
-      expirationDate: '2025-02-20',
+      itemName: "Bread",
+      expirationDate: "2025-02-20",
       daysUntilExpiry: 2,
-      severity: 'critical'
+      severity: "critical",
     },
     {
       id: 2,
       itemId: 2,
-      itemName: 'Tomatoes',
-      expirationDate: '2025-02-22',
+      itemName: "Tomatoes",
+      expirationDate: "2025-02-22",
       daysUntilExpiry: 4,
-      severity: 'warning'
+      severity: "warning",
     },
   ]);
 
   const [members] = useState<HouseholdMember[]>([
     {
       id: 1,
-      name: 'You',
-      email: 'you@example.com',
-      role: 'admin',
-      joinedDate: '2025-01-15',
-      avatarColor: '#FF6B6B'
+      name: "You",
+      email: "you@example.com",
+      role: "admin",
+      joinedDate: "2025-01-15",
+      avatarColor: "#FF6B6B",
     },
     {
       id: 2,
-      name: 'Partner',
-      email: 'partner@example.com',
-      role: 'member',
-      joinedDate: '2025-01-20',
-      avatarColor: '#4ECDC4'
+      name: "Partner",
+      email: "partner@example.com",
+      role: "member",
+      joinedDate: "2025-01-20",
+      avatarColor: "#4ECDC4",
     },
   ]);
 
@@ -90,30 +99,76 @@ const Dashboard: React.FC = () => {
     totalItems: pantryItems.length,
     expiringInWeek: alerts.length,
     expiredItems: 0,
-    householdMembers: members.length
+    householdMembers: members.length,
   };
 
-  const categories = ['all', ...Array.from(new Set(pantryItems.map(item => item.category || 'Uncategorized')))];
-  const filteredItems = selectedCategory === 'all'
-    ? pantryItems
-    : pantryItems.filter(item => (item.category || 'Uncategorized') === selectedCategory);
+  // Check user and handle redirects
+  useEffect(() => {
+    const checkUser = () => {
+      const userData = authAPI.getUser();
+      if (!userData) {
+        navigate("/login");
+      } else {
+        setUser(userData);
+      }
+      setLoading(false);
+    };
+    checkUser();
+  }, [navigate]);
+
+  const handleLogout = () => {
+    authAPI.logout();
+    navigate("/login");
+  };
+
+  // Early returns after all hooks
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-xl">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-xl text-red-600">
+          Error: User not found. Redirecting...
+        </div>
+      </div>
+    );
+  }
+
+  const categories = [
+    "all",
+    ...Array.from(
+      new Set(pantryItems.map((item) => item.category || "Uncategorized")),
+    ),
+  ];
+  const filteredItems =
+    selectedCategory === "all"
+      ? pantryItems
+      : pantryItems.filter(
+          (item) => (item.category || "Uncategorized") === selectedCategory,
+        );
 
   const handleDelete = (id: number) => {
-    setPantryItems(pantryItems.filter(item => item.id !== id));
+    setPantryItems(pantryItems.filter((item) => item.id !== id));
   };
 
   const handleAddItem = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const newItem: PantryItem = {
-      id: Math.max(0, ...pantryItems.map(i => i.id)) + 1,
-      name: formData.get('name') as string,
-      quantity: parseInt(formData.get('quantity') as string),
-      unit: formData.get('unit') as string,
-      category: formData.get('category') as string,
-      expirationDate: formData.get('expirationDate') as string || undefined,
-      notes: formData.get('notes') as string || undefined,
-      addedDate: new Date().toISOString().split('T')[0]
+      id: Math.max(0, ...pantryItems.map((i) => i.id)) + 1,
+      name: formData.get("name") as string,
+      quantity: parseInt(formData.get("quantity") as string),
+      unit: formData.get("unit") as string,
+      category: formData.get("category") as string,
+      expirationDate: (formData.get("expirationDate") as string) || undefined,
+      notes: (formData.get("notes") as string) || undefined,
+      addedDate: new Date().toISOString().split("T")[0],
     };
     setPantryItems([...pantryItems, newItem]);
     setShowAddForm(false);
@@ -121,25 +176,58 @@ const Dashboard: React.FC = () => {
   };
 
   const getExpiryStatus = (expirationDate?: string) => {
-    if (!expirationDate) return { status: 'unknown', color: 'bg-gray-100', textColor: 'text-gray-700' };
+    if (!expirationDate)
+      return {
+        status: "unknown",
+        color: "bg-gray-100",
+        textColor: "text-gray-700",
+      };
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const expiry = new Date(expirationDate);
-    const daysUntilExpiry = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const daysUntilExpiry = Math.ceil(
+      (expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+    );
 
-    if (daysUntilExpiry < 0) return { status: 'expired', color: 'bg-gray-100', textColor: 'text-gray-700' };
-    if (daysUntilExpiry <= 2) return { status: 'critical', color: 'bg-red-50', textColor: 'text-red-700' };
-    if (daysUntilExpiry <= 7) return { status: 'warning', color: 'bg-yellow-50', textColor: 'text-yellow-700' };
-    return { status: 'fresh', color: 'bg-green-50', textColor: 'text-green-700' };
+    if (daysUntilExpiry < 0)
+      return {
+        status: "expired",
+        color: "bg-gray-100",
+        textColor: "text-gray-700",
+      };
+    if (daysUntilExpiry <= 2)
+      return {
+        status: "critical",
+        color: "bg-red-50",
+        textColor: "text-red-700",
+      };
+    if (daysUntilExpiry <= 7)
+      return {
+        status: "warning",
+        color: "bg-yellow-50",
+        textColor: "text-yellow-700",
+      };
+    return {
+      status: "fresh",
+      color: "bg-green-50",
+      textColor: "text-green-700",
+    };
   };
 
   const getCategoryEmoji = (category?: string) => {
     const emojiMap: { [key: string]: string } = {
-      'Dairy': '🥛', 'Vegetables': '🥬', 'Bakery': '🍞', 'Meat': '🍗',
-      'Beverages': '🥤', 'Fruits': '🍎', 'Pantry': '🥫', 'Frozen': '🧊',
-      'Condiments': '🫙', 'Uncategorized': '📦'
+      Dairy: "🥛",
+      Vegetables: "🥬",
+      Bakery: "🍞",
+      Meat: "🍗",
+      Beverages: "🥤",
+      Fruits: "🍎",
+      Pantry: "🥫",
+      Frozen: "🧊",
+      Condiments: "🫙",
+      Uncategorized: "📦",
     };
-    return emojiMap[category || 'Uncategorized'] || '📦';
+    return emojiMap[category || "Uncategorized"] || "📦";
   };
 
   return (
@@ -152,6 +240,15 @@ const Dashboard: React.FC = () => {
                 <span className="text-2xl font-bold text-primary">EatWise</span>
               </div>
             </div>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-700">{user?.email}</span>
+              <button
+                onClick={handleLogout}
+                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </nav>
       </div>
@@ -163,7 +260,8 @@ const Dashboard: React.FC = () => {
               Welcome to Your Dashboard
             </h1>
             <p className="mt-2 text-lg text-gray-600">
-              Manage your pantry, track expirations, and collaborate with your household.
+              Manage your pantry, track expirations, and collaborate with your
+              household.
             </p>
           </div>
         </header>
@@ -171,20 +269,36 @@ const Dashboard: React.FC = () => {
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-lg transition-shadow">
-              <p className="text-gray-600 text-sm font-semibold uppercase">Total Items</p>
-              <p className="text-4xl font-bold text-gray-800 mt-2">{stats.totalItems}</p>
+              <p className="text-gray-600 text-sm font-semibold uppercase">
+                Total Items
+              </p>
+              <p className="text-4xl font-bold text-gray-800 mt-2">
+                {stats.totalItems}
+              </p>
             </div>
             <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-lg transition-shadow">
-              <p className="text-gray-600 text-sm font-semibold uppercase">Expiring Soon</p>
-              <p className="text-4xl font-bold text-orange-600 mt-2">{stats.expiringInWeek}</p>
+              <p className="text-gray-600 text-sm font-semibold uppercase">
+                Expiring Soon
+              </p>
+              <p className="text-4xl font-bold text-orange-600 mt-2">
+                {stats.expiringInWeek}
+              </p>
             </div>
             <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-lg transition-shadow">
-              <p className="text-gray-600 text-sm font-semibold uppercase">Expired Items</p>
-              <p className="text-4xl font-bold text-red-600 mt-2">{stats.expiredItems}</p>
+              <p className="text-gray-600 text-sm font-semibold uppercase">
+                Expired Items
+              </p>
+              <p className="text-4xl font-bold text-red-600 mt-2">
+                {stats.expiredItems}
+              </p>
             </div>
             <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-lg transition-shadow">
-              <p className="text-gray-600 text-sm font-semibold uppercase">Members</p>
-              <p className="text-4xl font-bold text-blue-600 mt-2">{stats.householdMembers}</p>
+              <p className="text-gray-600 text-sm font-semibold uppercase">
+                Members
+              </p>
+              <p className="text-4xl font-bold text-blue-600 mt-2">
+                {stats.householdMembers}
+              </p>
             </div>
           </div>
 
@@ -192,16 +306,29 @@ const Dashboard: React.FC = () => {
             <div className="lg:col-span-2">
               {alerts.length > 0 && (
                 <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-4">Expiration Alerts</h2>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                    Expiration Alerts
+                  </h2>
                   <div className="space-y-3">
-                    {alerts.map(alert => (
-                      <div key={alert.id} className="flex items-center gap-4 p-4 bg-yellow-50 border-l-4 border-orange-500 rounded-md">
-                        <span className="text-2xl">{alert.severity === 'critical' ? '🔴' : '🟡'}</span>
+                    {alerts.map((alert) => (
+                      <div
+                        key={alert.id}
+                        className="flex items-center gap-4 p-4 bg-yellow-50 border-l-4 border-orange-500 rounded-md"
+                      >
+                        <span className="text-2xl">
+                          {alert.severity === "critical" ? "🔴" : "🟡"}
+                        </span>
                         <div className="flex-1">
-                          <p className="font-semibold text-gray-800">{alert.itemName}</p>
-                          <p className="text-sm text-gray-600">Expires in {alert.daysUntilExpiry} days</p>
+                          <p className="font-semibold text-gray-800">
+                            {alert.itemName}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            Expires in {alert.daysUntilExpiry} days
+                          </p>
                         </div>
-                        <button className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 text-sm font-semibold">Use Today</button>
+                        <button className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 text-sm font-semibold">
+                          Use Today
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -210,7 +337,9 @@ const Dashboard: React.FC = () => {
 
               <div className="bg-white rounded-lg shadow-sm p-6">
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-gray-800">Pantry Inventory</h2>
+                  <h2 className="text-2xl font-bold text-gray-800">
+                    Pantry Inventory
+                  </h2>
                   <button
                     onClick={() => setShowAddForm(!showAddForm)}
                     className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors font-semibold"
@@ -220,10 +349,24 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {showAddForm && (
-                  <form onSubmit={handleAddItem} className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <form
+                    onSubmit={handleAddItem}
+                    className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200"
+                  >
                     <div className="grid grid-cols-2 gap-4 mb-4">
-                      <input name="name" placeholder="Item name" className="col-span-2 p-2 border rounded" required />
-                      <input name="quantity" type="number" placeholder="Quantity" className="p-2 border rounded" required />
+                      <input
+                        name="name"
+                        placeholder="Item name"
+                        className="col-span-2 p-2 border rounded"
+                        required
+                      />
+                      <input
+                        name="quantity"
+                        type="number"
+                        placeholder="Quantity"
+                        className="p-2 border rounded"
+                        required
+                      />
                       <select name="unit" className="p-2 border rounded">
                         <option>pieces</option>
                         <option>grams</option>
@@ -231,7 +374,10 @@ const Dashboard: React.FC = () => {
                         <option>liters</option>
                         <option>cups</option>
                       </select>
-                      <select name="category" className="col-span-2 p-2 border rounded">
+                      <select
+                        name="category"
+                        className="col-span-2 p-2 border rounded"
+                      >
                         <option value="Uncategorized">Uncategorized</option>
                         <option>Dairy</option>
                         <option>Vegetables</option>
@@ -242,49 +388,94 @@ const Dashboard: React.FC = () => {
                         <option>Pantry</option>
                         <option>Frozen</option>
                       </select>
-                      <input name="expirationDate" type="date" className="col-span-2 p-2 border rounded" />
-                      <textarea name="notes" placeholder="Notes (optional)" className="col-span-2 p-2 border rounded" rows={2}></textarea>
+                      <input
+                        name="expirationDate"
+                        type="date"
+                        className="col-span-2 p-2 border rounded"
+                      />
+                      <textarea
+                        name="notes"
+                        placeholder="Notes (optional)"
+                        className="col-span-2 p-2 border rounded"
+                        rows={2}
+                      ></textarea>
                     </div>
                     <div className="flex gap-2">
-                      <button type="submit" className="flex-1 bg-green-500 text-white py-2 rounded hover:bg-green-600 font-semibold">Add</button>
-                      <button type="button" onClick={() => setShowAddForm(false)} className="flex-1 bg-gray-300 text-gray-800 py-2 rounded hover:bg-gray-400 font-semibold">Cancel</button>
+                      <button
+                        type="submit"
+                        className="flex-1 bg-green-500 text-white py-2 rounded hover:bg-green-600 font-semibold"
+                      >
+                        Add
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddForm(false)}
+                        className="flex-1 bg-gray-300 text-gray-800 py-2 rounded hover:bg-gray-400 font-semibold"
+                      >
+                        Cancel
+                      </button>
                     </div>
                   </form>
                 )}
 
                 <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-                  {categories.map(cat => (
+                  {categories.map((cat) => (
                     <button
                       key={cat}
                       onClick={() => setSelectedCategory(cat)}
                       className={`px-4 py-2 rounded-full whitespace-nowrap font-semibold transition ${
                         selectedCategory === cat
-                          ? 'bg-primary text-white'
-                          : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                          ? "bg-primary text-white"
+                          : "bg-gray-200 text-gray-800 hover:bg-gray-300"
                       }`}
                     >
-                      {cat === 'all' ? 'All Items' : cat}
+                      {cat === "all" ? "All Items" : cat}
                     </button>
                   ))}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {filteredItems.map(item => {
+                  {filteredItems.map((item) => {
                     const status = getExpiryStatus(item.expirationDate);
                     return (
-                      <div key={item.id} className={`p-4 rounded-lg border-l-4 ${status.color}`}>
+                      <div
+                        key={item.id}
+                        className={`p-4 rounded-lg border-l-4 ${status.color}`}
+                      >
                         <div className="flex justify-between items-start mb-2">
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-2xl">{getCategoryEmoji(item.category)}</span>
-                              <h3 className="font-bold text-lg text-gray-800">{item.name}</h3>
+                              <span className="text-2xl">
+                                {getCategoryEmoji(item.category)}
+                              </span>
+                              <h3 className="font-bold text-lg text-gray-800">
+                                {item.name}
+                              </h3>
                             </div>
-                            <p className="text-sm text-gray-600">{item.quantity} {item.unit}</p>
+                            <p className="text-sm text-gray-600">
+                              {item.quantity} {item.unit}
+                            </p>
                           </div>
-                          <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-red-700 font-bold">✕</button>
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            className="text-red-500 hover:text-red-700 font-bold"
+                          >
+                            ✕
+                          </button>
                         </div>
-                        {item.expirationDate && <p className={`text-sm font-semibold mb-2 ${status.textColor}`}>Expires: {new Date(item.expirationDate).toLocaleDateString()}</p>}
-                        {item.notes && <p className="text-sm text-gray-600 italic">{item.notes}</p>}
+                        {item.expirationDate && (
+                          <p
+                            className={`text-sm font-semibold mb-2 ${status.textColor}`}
+                          >
+                            Expires:{" "}
+                            {new Date(item.expirationDate).toLocaleDateString()}
+                          </p>
+                        )}
+                        {item.notes && (
+                          <p className="text-sm text-gray-600 italic">
+                            {item.notes}
+                          </p>
+                        )}
                       </div>
                     );
                   })}
@@ -294,18 +485,34 @@ const Dashboard: React.FC = () => {
 
             <div className="lg:col-span-1">
               <div className="bg-white rounded-lg shadow-sm p-6">
-                <h3 className="text-xl font-bold text-gray-800 mb-4">Household Members</h3>
+                <h3 className="text-xl font-bold text-gray-800 mb-4">
+                  Household Members
+                </h3>
                 <div className="space-y-4">
-                  {members.map(member => (
+                  {members.map((member) => (
                     <div key={member.id} className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm" style={{ backgroundColor: member.avatarColor }}>
-                        {member.name.split(' ').map(n => n[0]).join('')}
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
+                        style={{ backgroundColor: member.avatarColor }}
+                      >
+                        {member.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm text-gray-800">{member.name}</p>
-                        <p className="text-xs text-gray-500 truncate">{member.email}</p>
+                        <p className="font-semibold text-sm text-gray-800">
+                          {member.name}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {member.email}
+                        </p>
                       </div>
-                      {member.role === 'admin' && <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded font-semibold">Admin</span>}
+                      {member.role === "admin" && (
+                        <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded font-semibold">
+                          Admin
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
