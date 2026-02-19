@@ -76,24 +76,7 @@ const Dashboard: React.FC = () => {
     },
   ]);
 
-  const [members] = useState<HouseholdMember[]>([
-    {
-      id: 1,
-      name: "You",
-      email: "you@example.com",
-      role: "admin",
-      joinedDate: "2025-01-15",
-      avatarColor: "#FF6B6B",
-    },
-    {
-      id: 2,
-      name: "Partner",
-      email: "partner@example.com",
-      role: "member",
-      joinedDate: "2025-01-20",
-      avatarColor: "#4ECDC4",
-    },
-  ]);
+  const [members, setMembers] = useState<HouseholdMember[]>([]);
 
   const stats: DashboardStats = {
     totalItems: pantryItems.length,
@@ -110,6 +93,17 @@ const Dashboard: React.FC = () => {
         navigate("/login");
       } else {
         setUser(userData);
+        // Set household member to current user
+        setMembers([
+          {
+            id: userData.id,
+            name: userData.full_name || userData.email.split("@")[0],
+            email: userData.email,
+            role: "admin",
+            joinedDate: new Date().toISOString().split("T")[0],
+            avatarColor: "#FF6B6B",
+          },
+        ]);
       }
       setLoading(false);
     };
