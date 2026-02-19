@@ -231,20 +231,20 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="bg-white shadow-md">
+    <div className="min-h-screen bg-white">
+      <div className="bg-white border-b border-gray-200">
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <span className="text-2xl font-bold text-primary">EatWise</span>
+                <span className="text-2xl font-bold text-amber-600">EatWise</span>
               </div>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-700">{user?.email}</span>
               <button
                 onClick={handleLogout}
-                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded font-medium transition-colors"
               >
                 Logout
               </button>
@@ -267,32 +267,20 @@ const Dashboard: React.FC = () => {
         </header>
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-lg transition-shadow">
-              <p className="text-gray-600 text-sm font-semibold uppercase">
-                Total Items
-              </p>
-              <p className="text-4xl font-bold text-gray-800 mt-2">
-                {stats.totalItems}
-              </p>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div className="bg-gray-50 rounded p-6">
+              <p className="text-gray-600 text-sm font-medium">Total Items</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalItems}</p>
             </div>
-            <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-lg transition-shadow">
-              <p className="text-gray-600 text-sm font-semibold uppercase">
-                Expiring Soon
-              </p>
-              <p className="text-4xl font-bold text-orange-600 mt-2">
-                {stats.expiringInWeek}
-              </p>
+            <div className="bg-gray-50 rounded p-6">
+              <p className="text-gray-600 text-sm font-medium">Expiring Soon</p>
+              <p className="text-3xl font-bold text-orange-600 mt-2">{stats.expiringInWeek}</p>
             </div>
-            <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-lg transition-shadow">
-              <p className="text-gray-600 text-sm font-semibold uppercase">
-                Expired Items
-              </p>
-              <p className="text-4xl font-bold text-red-600 mt-2">
-                {stats.expiredItems}
-              </p>
+            <div className="bg-gray-50 rounded p-6">
+              <p className="text-gray-600 text-sm font-medium">Expired Items</p>
+              <p className="text-3xl font-bold text-red-600 mt-2">{stats.expiredItems}</p>
             </div>
-            <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-lg transition-shadow">
+            <div className="bg-gray-50 rounded p-6">
               <p className="text-gray-600 text-sm font-semibold uppercase">
                 Members
               </p>
@@ -304,70 +292,39 @@ const Dashboard: React.FC = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">
-              {alerts.length > 0 && (
-                <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-4">
-                    Expiration Alerts
-                  </h2>
-                  <div className="space-y-3">
-                    {alerts.map((alert) => (
-                      <div
-                        key={alert.id}
-                        className="flex items-center gap-4 p-4 bg-yellow-50 border-l-4 border-orange-500 rounded-md"
-                      >
-                        <span className="text-2xl">
-                          {alert.severity === "critical" ? "🔴" : "🟡"}
-                        </span>
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-800">
-                            {alert.itemName}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            Expires in {alert.daysUntilExpiry} days
-                          </p>
-                        </div>
-                        <button className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 text-sm font-semibold">
-                          Use Today
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="bg-white rounded p-6 border border-gray-300">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold text-gray-800">
                     Pantry Inventory
                   </h2>
                   <button
                     onClick={() => setShowAddForm(!showAddForm)}
-                    className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors font-semibold"
+                    className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded font-medium transition-colors"
                   >
-                    Add Item
+                    + Add Item
                   </button>
                 </div>
 
                 {showAddForm && (
                   <form
                     onSubmit={handleAddItem}
-                    className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200"
+                    className="mb-6 p-4 bg-gray-50 rounded border border-gray-300"
                   >
-                    <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="grid grid-cols-2 gap-3 mb-4">
                       <input
                         name="name"
                         placeholder="Item name"
-                        className="col-span-2 p-2 border rounded"
+                        className="col-span-2 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white text-sm"
                         required
                       />
                       <input
                         name="quantity"
                         type="number"
                         placeholder="Quantity"
-                        className="p-2 border rounded"
+                        className="p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white text-sm"
                         required
                       />
-                      <select name="unit" className="p-2 border rounded">
+                      <select name="unit" className="p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white text-sm">
                         <option>pieces</option>
                         <option>grams</option>
                         <option>kilograms</option>
@@ -376,7 +333,7 @@ const Dashboard: React.FC = () => {
                       </select>
                       <select
                         name="category"
-                        className="col-span-2 p-2 border rounded"
+                        className="col-span-2 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white text-sm"
                       >
                         <option value="Uncategorized">Uncategorized</option>
                         <option>Dairy</option>
@@ -391,26 +348,26 @@ const Dashboard: React.FC = () => {
                       <input
                         name="expirationDate"
                         type="date"
-                        className="col-span-2 p-2 border rounded"
+                        className="col-span-2 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
                       />
                       <textarea
                         name="notes"
                         placeholder="Notes (optional)"
-                        className="col-span-2 p-2 border rounded"
+                        className="col-span-2 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white text-sm"
                         rows={2}
                       ></textarea>
                     </div>
                     <div className="flex gap-2">
                       <button
                         type="submit"
-                        className="flex-1 bg-green-500 text-white py-2 rounded hover:bg-green-600 font-semibold"
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded font-medium transition"
                       >
-                        Add
+                        Add Item
                       </button>
                       <button
                         type="button"
                         onClick={() => setShowAddForm(false)}
-                        className="flex-1 bg-gray-300 text-gray-800 py-2 rounded hover:bg-gray-400 font-semibold"
+                        className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 rounded font-medium transition"
                       >
                         Cancel
                       </button>
@@ -423,10 +380,10 @@ const Dashboard: React.FC = () => {
                     <button
                       key={cat}
                       onClick={() => setSelectedCategory(cat)}
-                      className={`px-4 py-2 rounded-full whitespace-nowrap font-semibold transition ${
+                      className={`px-4 py-1 rounded text-sm font-medium transition ${
                         selectedCategory === cat
-                          ? "bg-primary text-white"
-                          : "bg-gray-200 text-gray-800 hover:bg-gray-300"
+                          ? "bg-amber-600 text-white"
+                          : "bg-gray-300 text-gray-800 hover:bg-gray-400"
                       }`}
                     >
                       {cat === "all" ? "All Items" : cat}
@@ -440,7 +397,7 @@ const Dashboard: React.FC = () => {
                     return (
                       <div
                         key={item.id}
-                        className={`p-4 rounded-lg border-l-4 ${status.color}`}
+                        className={`p-4 rounded ${status.color}`}
                       >
                         <div className="flex justify-between items-start mb-2">
                           <div>
@@ -484,7 +441,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="bg-white rounded p-6 border border-gray-300">
                 <h3 className="text-xl font-bold text-gray-800 mb-4">
                   Household Members
                 </h3>

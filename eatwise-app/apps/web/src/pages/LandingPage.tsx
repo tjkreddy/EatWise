@@ -9,22 +9,22 @@ const LandingPage: React.FC = () => {
         className="relative bg-cover bg-center h-screen flex items-center justify-center text-white p-4"
         style={{
           backgroundImage:
-            "url('https://images.unsplash.com/photo-1542838131-92c478a531f9?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')",
+            "url('https://images.unsplash.com/photo-1495521821757-a1efb6729352?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')",
         }}
       >
         <div className="absolute inset-0 bg-black opacity-60"></div>
         <div className="relative z-10 text-center max-w-3xl">
-          <h1 className="text-5xl md:text-6xl font-extrabold leading-tight mb-4 animate-fade-in-down">
+          <h1 className="text-5xl md:text-6xl font-extrabold leading-tight mb-4 animate-fade-in-down text-amber-300">
             EatWise: Smart Kitchen, Zero Waste.
           </h1>
-          <p className="text-xl md:text-2xl mb-8 animate-fade-in-up">
+          <p className="text-xl md:text-2xl mb-8 animate-fade-in-up text-amber-100">
             Effortless pantry management, expiration tracking, and meal planning
             to reduce food waste and save money.
           </p>
           <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
             <Link
               to="/signup"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transform transition duration-300 hover:scale-105"
+              className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transform transition duration-300 hover:scale-105"
             >
               Get Started Now
             </Link>
@@ -59,20 +59,7 @@ const LandingPage: React.FC = () => {
                 Never forget what you have again.
               </p>
             </div>
-            <div className="p-6 bg-gray-50 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
-              <img
-                src="https://picsum.photos/300/200?random=2"
-                alt="Expiration Alerts"
-                className="w-full h-48 object-cover rounded-lg mb-4"
-              />
-              <h3 className="text-2xl font-bold text-gray-800 mb-4">
-                Expiration Alerts
-              </h3>
-              <p className="text-gray-600">
-                Receive timely notifications before your food goes bad, helping
-                you minimize waste.
-              </p>
-            </div>
+
             <div className="p-6 bg-gray-50 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
               <img
                 src="https://picsum.photos/300/200?random=3"
