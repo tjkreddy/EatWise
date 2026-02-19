@@ -1,7 +1,42 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 
 const LandingPage: React.FC = () => {
+  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+
+  const faqs = [
+    {
+      question: "How do I get started with EatWise?",
+      answer:
+        "Simply sign up for a free account, add your household members, and start logging your grocery items. You can set expiration dates and track your inventory in real-time.",
+    },
+    {
+      question: "Is EatWise really free?",
+      answer:
+        "Yes! EatWise is completely free to use. We don't have hidden costs, paywalls, or premium features. Our mission is to help everyone reduce food waste.",
+    },
+    {
+      question: "Can I share my pantry with family members?",
+      answer:
+        "Absolutely! You can invite household members to your EatWise account, and everyone can view and update the shared inventory. Perfect for families and roommates.",
+    },
+    {
+      question: "How does EatWise help reduce food waste?",
+      answer:
+        "By tracking expiration dates and quantities, EatWise helps you know exactly what you have. This prevents duplicate purchases and helps you use items before they expire.",
+    },
+    {
+      question: "What information do I need to add items?",
+      answer:
+        "At minimum, you just need the item name and quantity. Expiration date is optional but recommended for better waste reduction. You can also add notes and categorize items.",
+    },
+    {
+      question: "Can I access EatWise on my phone?",
+      answer:
+        "Yes! EatWise is fully responsive and works great on mobile devices, tablets, and desktops. Access your pantry inventory anytime, anywhere.",
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-white">
       {/* Navbar */}
@@ -270,6 +305,57 @@ const LandingPage: React.FC = () => {
           >
             Get Started Free
           </Link>
+        </div>
+      </div>
+
+      {/* FAQ Section */}
+      <div className="py-20 bg-white">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-4xl font-bold text-gray-900 mb-12 text-center">
+            Frequently Asked Questions
+          </h2>
+          <div className="space-y-4">
+            {faqs.map((faq, index) => (
+              <div
+                key={index}
+                className="border border-gray-300 rounded-lg overflow-hidden"
+              >
+                <button
+                  onClick={() =>
+                    setExpandedFaq(expandedFaq === index ? null : index)
+                  }
+                  className="w-full px-6 py-4 text-left bg-gray-50 hover:bg-gray-100 transition font-semibold text-gray-900 flex justify-between items-center"
+                >
+                  <span>{faq.question}</span>
+                  <span
+                    className={`text-amber-600 text-2xl transition-transform ${
+                      expandedFaq === index ? "rotate-180" : ""
+                    }`}
+                  >
+                    ▼
+                  </span>
+                </button>
+                {expandedFaq === index && (
+                  <div className="px-6 py-4 bg-white border-t border-gray-300">
+                    <p className="text-gray-600 leading-relaxed">
+                      {faq.answer}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="mt-12 text-center">
+            <p className="text-gray-600 mb-4">
+              Still have questions? We're here to help!
+            </p>
+            <a
+              href="mailto:support@eatwise.com"
+              className="text-amber-600 hover:text-amber-700 font-semibold"
+            >
+              Contact our support team
+            </a>
+          </div>
         </div>
       </div>
 
