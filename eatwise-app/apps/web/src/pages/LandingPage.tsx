@@ -9,7 +9,7 @@ const LandingPage: React.FC = () => {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <div className="text-2xl font-bold text-amber-600">EatWise</div>
           <div className="flex gap-4">
-            <Link to="/login" className="text-gray-700 hover:text-amber-600 font-medium">
+            <Link to="/login" className="border border-amber-600 text-amber-600 hover:bg-amber-50 px-4 py-2 rounded font-medium transition">
               Login
             </Link>
             <Link to="/signup" className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded font-medium">
