@@ -44,8 +44,11 @@ const SignupPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 rounded shadow-md w-96">
+    <div className="min-h-screen flex items-center justify-center bg-cover bg-center" style={{
+      backgroundImage: "url('https://images.unsplash.com/photo-1495521821757-a1efb6729352?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3')"
+    }}>
+      <div className="absolute inset-0 bg-black opacity-50"></div>
+      <div className="relative z-10 bg-white p-8 rounded shadow-lg w-96">
         <h1 className="text-2xl font-bold mb-6 text-center">
           Sign Up for EatWise
         </h1>
