@@ -1,0 +1,105 @@
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { authAPI } from "../lib/authAPI";
+
+const LoginPage: React.FC = () => {
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [error, setError] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const navigate = useNavigate();
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const data = await authAPI.login(email, password);
+      console.log("Login successful:", data.user);
+      navigate("/dashboard");
+    } catch (err: any) {
+      setError(err.message || "Invalid email or password");
+      console.error("Login error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="bg-white p-8 rounded shadow-md w-96">
+        <h1 className="text-2xl font-bold mb-6 text-center">
+          Login to EatWise
+        </h1>
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            {error}
+          </div>
+        )}
+        <form onSubmit={handleLogin}>
+          <div className="mb-4">
+            <label
+              className="block text-gray-700 text-sm font-bold mb-2"
+              htmlFor="email"
+            >
+              Email
+            </label>
+            <input
+              type="email"
+              id="email"
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div className="mb-6">
+            <label
+              className="block text-gray-700 text-sm font-bold mb-2"
+              htmlFor="password"
+            >
+              Password
+            </label>
+            <input
+              type="password"
+              id="password"
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+          <div className="flex items-center justify-between mb-4">
+            <button
+              type="submit"
+              disabled={loading}
+              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50 disabled:cursor-not-allowed w-full"
+            >
+              {loading ? "Signing In..." : "Sign In"}
+            </button>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-gray-600">
+              Don't have an account?{" "}
+              <Link
+                to="/signup"
+                className="font-bold text-blue-500 hover:text-blue-800"
+              >
+                Sign Up
+              </Link>
+            </p>
+            <Link
+              to="/"
+              className="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800 mt-2"
+            >
+              Back to Welcome
+            </Link>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default LoginPage;
