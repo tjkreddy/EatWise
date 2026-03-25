@@ -44,16 +44,37 @@ type AuthResponse struct {
 }
 
 type PantryItem struct {
-	ID             int       `json:"id"`
-	UserID         string    `json:"user_id"`
-	Name           string    `json:"name"`
-	Quantity       int       `json:"quantity"`
-	Unit           string    `json:"unit,omitempty"`
-	Category       string    `json:"category,omitempty"`
-	ExpirationDate string    `json:"expiration_date,omitempty"`
-	Notes          string    `json:"notes,omitempty"`
-	CreatedAt      time.Time `json:"created_at,omitempty"`
-	UpdatedAt      time.Time `json:"updated_at,omitempty"`
+	ID          int       `json:"id"`
+	HouseholdID string    `json:"household_id"`
+	UserID      string    `json:"user_id"`
+	Name        string    `json:"name"`
+	Quantity    int       `json:"quantity"`
+	Unit        string    `json:"unit,omitempty"`
+	Category    string    `json:"category,omitempty"`
+	ExpirationDate string `json:"expiration_date,omitempty"`
+	Notes      string    `json:"notes,omitempty"`
+	CreatedAt  time.Time `json:"created_at,omitempty"`
+	UpdatedAt  time.Time `json:"updated_at,omitempty"`
+}
+
+type Household struct {
+	ID         string    `json:"id"`
+	Name       string    `json:"name"`
+	InviteCode string    `json:"invite_code"`
+	CreatedBy  string    `json:"created_by"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+type HouseholdMember struct {
+	UserID   string `json:"user_id"`
+	Email    string `json:"email"`
+	FullName string `json:"full_name,omitempty"`
+	Role     string `json:"role"`
+}
+
+type HouseholdResponse struct {
+	Household Household          `json:"household"`
+	Members   []HouseholdMember `json:"members"`
 }
 
 var db *sql.DB
@@ -246,6 +267,42 @@ func getUserIDFromRequest(r *http.Request) (string, error) {
 	return uid, nil
 }
 
+func getUserHouseholdID(userID string) (string, error) {
+	var householdID string
+	err := db.QueryRow(`SELECT household_id FROM household_members WHERE user_id = $1`, userID).Scan(&householdID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", errors.New("user not in any household")
+		}
+		return "", err
+	}
+	return householdID, nil
+}
+
+func checkHouseholdMembership(userID, householdID string) error {
+	var exists bool
+	err := db.QueryRow(`SELECT EXISTS(SELECT 1 FROM household_members WHERE user_id = $1 AND household_id = $2)`, userID, householdID).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return errors.New("user not member of household")
+	}
+	return nil
+}
+
+func checkHouseholdOwner(userID, householdID string) error {
+	var role string
+	err := db.QueryRow(`SELECT role FROM household_members WHERE user_id = $1 AND household_id = $2`, userID, householdID).Scan(&role)
+	if err != nil {
+		return err
+	}
+	if role != "owner" {
+		return errors.New("user is not owner of household")
+	}
+	return nil
+}
+
 func parseIDFromPath(prefix string, r *http.Request) (int, error) {
 	// expect path like /api/pantry/items/{id}
 	p := strings.TrimPrefix(r.URL.Path, prefix)
@@ -271,7 +328,12 @@ func fetchPantryHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
 		return
 	}
-	rows, err := db.Query(`SELECT id, user_id, name, quantity, unit, category, expiration_date, notes, created_at, updated_at FROM pantry_items WHERE user_id = $1 ORDER BY id`, userID)
+	householdID, err := getUserHouseholdID(userID)
+	if err != nil {
+		http.Error(w, "User not in household: "+err.Error(), http.StatusForbidden)
+		return
+	}
+	rows, err := db.Query(`SELECT id, household_id, user_id, name, quantity, unit, category, expiration_date, notes, created_at, updated_at FROM pantry_items WHERE household_id = $1 ORDER BY id`, householdID)
 	if err != nil {
 		log.Printf("fetchPantryHandler query error: %v", err)
 		http.Error(w, "Failed to fetch items", http.StatusInternalServerError)
@@ -282,7 +344,7 @@ func fetchPantryHandler(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var it PantryItem
 		var exp sql.NullTime
-		if err := rows.Scan(&it.ID, &it.UserID, &it.Name, &it.Quantity, &it.Unit, &it.Category, &exp, &it.Notes, &it.CreatedAt, &it.UpdatedAt); err != nil {
+		if err := rows.Scan(&it.ID, &it.HouseholdID, &it.UserID, &it.Name, &it.Quantity, &it.Unit, &it.Category, &exp, &it.Notes, &it.CreatedAt, &it.UpdatedAt); err != nil {
 			log.Printf("fetchPantryHandler scan error: %v", err)
 			continue
 		}
@@ -303,6 +365,11 @@ func addPantryHandler(w http.ResponseWriter, r *http.Request) {
 	userID, err := getUserIDFromRequest(r)
 	if err != nil {
 		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		return
+	}
+	householdID, err := getUserHouseholdID(userID)
+	if err != nil {
+		http.Error(w, "User not in household: "+err.Error(), http.StatusForbidden)
 		return
 	}
 	var req struct {
@@ -334,25 +401,26 @@ func addPantryHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		exp = sql.NullTime{Time: t, Valid: true}
 	}
-	query := `INSERT INTO pantry_items (user_id, name, quantity, unit, category, expiration_date, notes) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, created_at, updated_at`
+	query := `INSERT INTO pantry_items (household_id, user_id, name, quantity, unit, category, expiration_date, notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, created_at, updated_at`
 	var id int
 	var createdAt, updatedAt time.Time
-	err = db.QueryRow(query, userID, req.Name, req.Quantity, req.Unit, req.Category, exp, req.Notes).Scan(&id, &createdAt, &updatedAt)
+	err = db.QueryRow(query, householdID, userID, req.Name, req.Quantity, req.Unit, req.Category, exp, req.Notes).Scan(&id, &createdAt, &updatedAt)
 	if err != nil {
 		log.Printf("addPantryHandler insert error: %v", err)
 		http.Error(w, "Failed to add item", http.StatusInternalServerError)
 		return
 	}
 	item := PantryItem{
-		ID:             id,
-		UserID:         userID,
-		Name:           req.Name,
-		Quantity:       req.Quantity,
-		Unit:           req.Unit,
-		Category:       req.Category,
-		Notes:          req.Notes,
-		CreatedAt:      createdAt,
-		UpdatedAt:      updatedAt,
+		ID:          id,
+		HouseholdID: householdID,
+		UserID:      userID,
+		Name:        req.Name,
+		Quantity:    req.Quantity,
+		Unit:        req.Unit,
+		Category:    req.Category,
+		Notes:       req.Notes,
+		CreatedAt:   createdAt,
+		UpdatedAt:   updatedAt,
 	}
 	if exp.Valid {
 		item.ExpirationDate = exp.Time.Format("2006-01-02")
@@ -371,14 +439,19 @@ func deletePantryHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
 		return
 	}
+	householdID, err := getUserHouseholdID(userID)
+	if err != nil {
+		http.Error(w, "User not in household: "+err.Error(), http.StatusForbidden)
+		return
+	}
 	id, err := parseIDFromPath("/api/pantry/items/", r)
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
 	}
-	// Ensure item belongs to user
+	// Ensure item belongs to household
 	var exists bool
-	err = db.QueryRow(`SELECT EXISTS(SELECT 1 FROM pantry_items WHERE id=$1 AND user_id=$2)`, id, userID).Scan(&exists)
+	err = db.QueryRow(`SELECT EXISTS(SELECT 1 FROM pantry_items WHERE id=$1 AND household_id=$2)`, id, householdID).Scan(&exists)
 	if err != nil {
 		log.Printf("deletePantryHandler exists check error: %v", err)
 		http.Error(w, "Failed to delete item", http.StatusInternalServerError)
@@ -388,7 +461,7 @@ func deletePantryHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Item not found", http.StatusNotFound)
 		return
 	}
-	_, err = db.Exec(`DELETE FROM pantry_items WHERE id=$1 AND user_id=$2`, id, userID)
+	_, err = db.Exec(`DELETE FROM pantry_items WHERE id=$1 AND household_id=$2`, id, householdID)
 	if err != nil {
 		log.Printf("deletePantryHandler delete error: %v", err)
 		http.Error(w, "Failed to delete item", http.StatusInternalServerError)
@@ -408,6 +481,11 @@ func updatePantryHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
 		return
 	}
+	householdID, err := getUserHouseholdID(userID)
+	if err != nil {
+		http.Error(w, "User not in household: "+err.Error(), http.StatusForbidden)
+		return
+	}
 	id, err := parseIDFromPath("/api/pantry/items/", r)
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -425,9 +503,9 @@ func updatePantryHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	// Check exists and belongs to user
+	// Check exists and belongs to household
 	var exists bool
-	err = db.QueryRow(`SELECT EXISTS(SELECT 1 FROM pantry_items WHERE id=$1 AND user_id=$2)`, id, userID).Scan(&exists)
+	err = db.QueryRow(`SELECT EXISTS(SELECT 1 FROM pantry_items WHERE id=$1 AND household_id=$2)`, id, householdID).Scan(&exists)
 	if err != nil {
 		log.Printf("updatePantryHandler exists check error: %v", err)
 		http.Error(w, "Failed to update item", http.StatusInternalServerError)
@@ -498,13 +576,13 @@ func updatePantryHandler(w http.ResponseWriter, r *http.Request) {
 	argPos++
 
 	// Build final query
-	query := fmt.Sprintf("UPDATE pantry_items SET %s WHERE id=$%d AND user_id=$%d RETURNING id, user_id, name, quantity, unit, category, expiration_date, notes, created_at, updated_at", strings.Join(sets, ", "), argPos, argPos+1)
-	args = append(args, id, userID)
+	query := fmt.Sprintf("UPDATE pantry_items SET %s WHERE id=$%d AND household_id=$%d RETURNING id, household_id, user_id, name, quantity, unit, category, expiration_date, notes, created_at, updated_at", strings.Join(sets, ", "), argPos, argPos+1)
+	args = append(args, id, householdID)
 
 	var it PantryItem
 	var exp sql.NullTime
 	row := db.QueryRow(query, args...)
-	if err := row.Scan(&it.ID, &it.UserID, &it.Name, &it.Quantity, &it.Unit, &it.Category, &exp, &it.Notes, &it.CreatedAt, &it.UpdatedAt); err != nil {
+	if err := row.Scan(&it.ID, &it.HouseholdID, &it.UserID, &it.Name, &it.Quantity, &it.Unit, &it.Category, &exp, &it.Notes, &it.CreatedAt, &it.UpdatedAt); err != nil {
 		log.Printf("updatePantryHandler scan error: %v", err)
 		http.Error(w, "Failed to update item", http.StatusInternalServerError)
 		return
@@ -513,6 +591,239 @@ func updatePantryHandler(w http.ResponseWriter, r *http.Request) {
 		it.ExpirationDate = exp.Time.Format("2006-01-02")
 	}
 	respondJSON(w, http.StatusOK, it)
+}
+
+// POST /api/households
+func createHouseholdHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, err := getUserIDFromRequest(r)
+	if err != nil {
+		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	// Check if user already in household
+	_, err = getUserHouseholdID(userID)
+	if err == nil {
+		http.Error(w, "User already in a household", http.StatusConflict)
+		return
+	}
+
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.Name) == "" {
+		http.Error(w, "Name is required", http.StatusBadRequest)
+		return
+	}
+
+	householdID := uuid.New().String()
+	inviteCode := strings.ToUpper(uuid.New().String()[:6]) // Simple 6-char code
+
+	query := `INSERT INTO households (id, name, invite_code, created_by) VALUES ($1, $2, $3, $4)`
+	_, err = db.Exec(query, householdID, req.Name, inviteCode, userID)
+	if err != nil {
+		log.Printf("createHouseholdHandler insert error: %v", err)
+		http.Error(w, "Failed to create household", http.StatusInternalServerError)
+		return
+	}
+
+	// Add creator as owner
+	_, err = db.Exec(`INSERT INTO household_members (household_id, user_id, role) VALUES ($1, $2, 'owner')`, householdID, userID)
+	if err != nil {
+		log.Printf("createHouseholdHandler member insert error: %v", err)
+		http.Error(w, "Failed to add member", http.StatusInternalServerError)
+		return
+	}
+
+	household := Household{
+		ID:         householdID,
+		Name:       req.Name,
+		InviteCode: inviteCode,
+		CreatedBy:  userID,
+		CreatedAt:  time.Now(),
+	}
+	respondJSON(w, http.StatusCreated, household)
+}
+
+// POST /api/households/join
+func joinHouseholdHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, err := getUserIDFromRequest(r)
+	if err != nil {
+		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	// Check if user already in household
+	_, err = getUserHouseholdID(userID)
+	if err == nil {
+		http.Error(w, "User already in a household", http.StatusConflict)
+		return
+	}
+
+	var req struct {
+		InviteCode string `json:"invite_code"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.InviteCode) == "" {
+		http.Error(w, "Invite code is required", http.StatusBadRequest)
+		return
+	}
+
+	var householdID string
+	err = db.QueryRow(`SELECT id FROM households WHERE invite_code = $1`, strings.ToUpper(req.InviteCode)).Scan(&householdID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Invalid invite code", http.StatusNotFound)
+			return
+		}
+		log.Printf("joinHouseholdHandler query error: %v", err)
+		http.Error(w, "Failed to join household", http.StatusInternalServerError)
+		return
+	}
+
+	// Add as member
+	_, err = db.Exec(`INSERT INTO household_members (household_id, user_id, role) VALUES ($1, $2, 'member')`, householdID, userID)
+	if err != nil {
+		log.Printf("joinHouseholdHandler member insert error: %v", err)
+		http.Error(w, "Failed to join household", http.StatusInternalServerError)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"message":      "joined",
+		"household_id": householdID,
+	})
+}
+
+// GET /api/households/me
+func getHouseholdHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, err := getUserIDFromRequest(r)
+	if err != nil {
+		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	householdID, err := getUserHouseholdID(userID)
+	if err != nil {
+		http.Error(w, "User not in household: "+err.Error(), http.StatusNotFound)
+		return
+	}
+
+	var household Household
+	err = db.QueryRow(`SELECT id, name, invite_code, created_by, created_at FROM households WHERE id = $1`, householdID).Scan(
+		&household.ID, &household.Name, &household.InviteCode, &household.CreatedBy, &household.CreatedAt)
+	if err != nil {
+		log.Printf("getHouseholdHandler query error: %v", err)
+		http.Error(w, "Failed to get household", http.StatusInternalServerError)
+		return
+	}
+
+	rows, err := db.Query(`
+		SELECT hm.user_id, u.email, u.full_name, hm.role
+		FROM household_members hm
+		JOIN users u ON hm.user_id = u.id
+		WHERE hm.household_id = $1
+		ORDER BY hm.joined_at`, householdID)
+	if err != nil {
+		log.Printf("getHouseholdHandler members query error: %v", err)
+		http.Error(w, "Failed to get members", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	members := []HouseholdMember{}
+	for rows.Next() {
+		var m HouseholdMember
+		err := rows.Scan(&m.UserID, &m.Email, &m.FullName, &m.Role)
+		if err != nil {
+			log.Printf("getHouseholdHandler scan error: %v", err)
+			continue
+		}
+		members = append(members, m)
+	}
+
+	response := HouseholdResponse{
+		Household: household,
+		Members:   members,
+	}
+	respondJSON(w, http.StatusOK, response)
+}
+
+// DELETE /api/households/:id/members/:userId
+func removeMemberHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, err := getUserIDFromRequest(r)
+	if err != nil {
+		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	// Parse household ID from URL
+	householdID := strings.TrimPrefix(r.URL.Path, "/api/households/")
+	householdID = strings.Split(householdID, "/")[0]
+	if householdID == "" {
+		http.Error(w, "Invalid household ID", http.StatusBadRequest)
+		return
+	}
+
+	// Parse user ID to remove
+	userIDToRemove := strings.TrimPrefix(r.URL.Path, "/api/households/"+householdID+"/members/")
+	if userIDToRemove == "" {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	// Check if requester is owner
+	err = checkHouseholdOwner(userID, householdID)
+	if err != nil {
+		http.Error(w, "Forbidden: "+err.Error(), http.StatusForbidden)
+		return
+	}
+
+	// Cannot remove self if owner (unless transfer ownership, but not implemented)
+	if userID == userIDToRemove {
+		http.Error(w, "Cannot remove yourself as owner", http.StatusBadRequest)
+		return
+	}
+
+	// Check if target user is in household
+	err = checkHouseholdMembership(userIDToRemove, householdID)
+	if err != nil {
+		http.Error(w, "User not in household", http.StatusNotFound)
+		return
+	}
+
+	// Remove member
+	_, err = db.Exec(`DELETE FROM household_members WHERE household_id = $1 AND user_id = $2`, householdID, userIDToRemove)
+	if err != nil {
+		log.Printf("removeMemberHandler delete error: %v", err)
+		http.Error(w, "Failed to remove member", http.StatusInternalServerError)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"message": "member removed"})
 }
 
 func main() {
@@ -532,6 +843,11 @@ func main() {
 	})
 	http.HandleFunc("/api/auth/signup", enableCORS(signupHandler))
 	http.HandleFunc("/api/auth/login", enableCORS(loginHandler))
+	// Household routes
+	http.HandleFunc("/api/households", enableCORS(createHouseholdHandler))
+	http.HandleFunc("/api/households/join", enableCORS(joinHouseholdHandler))
+	http.HandleFunc("/api/households/me", enableCORS(getHouseholdHandler))
+	http.HandleFunc("/api/households/", enableCORS(removeMemberHandler))
 	// Pantry routes
 	http.HandleFunc("/api/pantry/items", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
