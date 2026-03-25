@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:8080";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 export interface AuthResponse {
   token: string;
@@ -16,7 +16,7 @@ export const authAPI = {
     password: string,
     fullName?: string,
   ): Promise<AuthResponse> => {
-    const response = await fetch(`${API_URL}/api/auth/signup`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -36,7 +36,7 @@ export const authAPI = {
   },
 
   login: async (email: string, password: string): Promise<AuthResponse> => {
-    const response = await fetch(`${API_URL}/api/auth/login`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

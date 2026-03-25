@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { authAPI } from "../lib/authAPI";
+import { householdAPI } from "../lib/householdAPI";
 import type {
   PantryItem,
   AlertItem,
   DashboardStats,
   HouseholdMember,
+  Household,
 } from "../types";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -15,7 +19,9 @@ const Dashboard: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
-
+  const [household, setHousehold] = useState<Household | null>(null);
+  const [householdLoading, setHouseholdLoading] = useState(true);
+  const [householdError, setHouseholdError] = useState<string | null>(null);
   const [members, setMembers] = useState<HouseholdMember[]>([]);
 
   const alerts = useMemo<AlertItem[]>(() => {
@@ -60,29 +66,73 @@ const Dashboard: React.FC = () => {
         navigate("/login");
       } else {
         setUser(userData);
-        // Set household member to current user
-        setMembers([
-          {
-            id: userData.id,
-            name: userData.full_name || userData.email.split("@")[0],
-            email: userData.email,
-            role: "admin",
-            joinedDate: new Date().toISOString().split("T")[0],
-            avatarColor: "#FF6B6B",
-          },
-        ]);
       }
       setLoading(false);
     };
     checkUser();
   }, [navigate]);
 
+  // Fetch household data
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchHousehold = async () => {
+      try {
+        setHouseholdError(null);
+        const response = await householdAPI.getMyHousehold();
+        if (response.household) {
+          setHousehold(response.household);
+          // Set members from household
+          const householdMembers: HouseholdMember[] = (response.household.members || []).map((member: any) => ({
+            id: member.id || member.user_id || 0,
+            name: member.name || member.full_name || member.email.split("@")[0],
+            email: member.email,
+            role: member.role || "member",
+            joinedDate: member.joined_date || member.joinedDate,
+            avatarColor: member.avatarColor || generateAvatarColor(member.email),
+          }));
+          setMembers(householdMembers);
+        } else {
+          // Fallback: set current user as member if no household
+          setMembers([
+            {
+              id: user.id,
+              name: user.full_name || user.email.split("@")[0],
+              email: user.email,
+              role: "admin",
+              joinedDate: new Date().toISOString().split("T")[0],
+              avatarColor: generateAvatarColor(user.email),
+            },
+          ]);
+        }
+      } catch (error) {
+        console.error("Error fetching household:", error);
+        setHouseholdError(error instanceof Error ? error.message : "Failed to load household");
+        // Fallback: set current user as member on error
+        setMembers([
+          {
+            id: user.id,
+            name: user.full_name || user.email.split("@")[0],
+            email: user.email,
+            role: "admin",
+            joinedDate: new Date().toISOString().split("T")[0],
+            avatarColor: generateAvatarColor(user.email),
+          },
+        ]);
+      } finally {
+        setHouseholdLoading(false);
+      }
+    };
+
+    fetchHousehold();
+  }, [user]);
+
   useEffect(() => {
     if (!user) return;
     const fetchItems = async () => {
       try {
         const token = authAPI.getToken();
-        const response = await fetch("http://localhost:8080/api/pantry/items", {
+        const response = await fetch(`${API_BASE_URL}/api/pantry/items`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -117,6 +167,15 @@ const Dashboard: React.FC = () => {
   const handleLogout = () => {
     authAPI.logout();
     navigate("/login");
+  };
+
+  const generateAvatarColor = (email: string): string => {
+    const colors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8"];
+    let hash = 0;
+    for (let i = 0; i < email.length; i++) {
+      hash = email.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
   };
 
   // Early returns after all hooks
@@ -155,7 +214,7 @@ const Dashboard: React.FC = () => {
     try {
       const token = authAPI.getToken();
       const response = await fetch(
-        `http://localhost:8080/api/pantry/items/${id}`,
+        `${API_BASE_URL}/api/pantry/items/${id}`,
         {
           method: "DELETE",
           headers: {
@@ -203,7 +262,7 @@ const Dashboard: React.FC = () => {
         alert("You must be logged in to add items");
         return;
       }
-      const response = await fetch("http://localhost:8080/api/pantry/items", {
+      const response = await fetch(`${API_BASE_URL}/api/pantry/items`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -311,14 +370,25 @@ const Dashboard: React.FC = () => {
       <div className="bg-white border-b border-gray-200">
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
+            <div className="flex items-center gap-6">
               <div className="flex-shrink-0">
                 <span className="text-2xl font-bold text-amber-600">
                   EatWise
                 </span>
               </div>
+              {household && (
+                <div className="text-gray-700">
+                  <span className="font-semibold">{household.name}</span>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-4">
+              <button
+                onClick={() => navigate("/shopping-list")}
+                className="text-gray-700 hover:text-amber-600 text-sm font-medium transition"
+              >
+                Shopping List
+              </button>
               <span className="text-sm text-gray-700">{user?.email}</span>
               <button
                 onClick={handleLogout}
@@ -565,6 +635,21 @@ const Dashboard: React.FC = () => {
                 <h3 className="text-xl font-bold text-gray-800 mb-4">
                   Household Members
                 </h3>
+                {householdLoading && (
+                  <div className="text-center py-4">
+                    <p className="text-gray-600">Loading members...</p>
+                  </div>
+                )}
+                {householdError && (
+                  <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+                    {householdError}
+                  </div>
+                )}
+                {members.length === 0 && !householdLoading && (
+                  <div className="text-center py-4">
+                    <p className="text-gray-600 text-sm">No members yet</p>
+                  </div>
+                )}
                 <div className="space-y-4">
                   {members.map((member) => (
                     <div key={member.id} className="flex items-center gap-3">
