@@ -23,6 +23,7 @@ export interface Household {
   name: string;
   members: HouseholdMember[];
   createdDate?: string;
+  inviteCode?: string;
 }
 
 export interface AlertItem {

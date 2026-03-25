@@ -34,7 +34,7 @@ const SignupPage: React.FC = () => {
       const data = await authAPI.signup(email, password);
       setSuccess(true);
       console.log("Signup successful:", data.user);
-      setTimeout(() => navigate("/dashboard"), 1500);
+      setTimeout(() => navigate("/household-gate"), 1500);
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred");
       console.error("Signup error:", err);
