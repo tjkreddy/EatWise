@@ -68,34 +68,15 @@ type Household struct {
 }
 
 type HouseholdMember struct {
-	UserID   string `json:"user_id"`
-	Email    string `json:"email"`
-	FullName string `json:"full_name,omitempty"`
-	Role     string `json:"role"`
+	UserID   string  `json:"user_id"`
+	Email    string  `json:"email"`
+	FullName *string `json:"full_name,omitempty"`
+	Role     string  `json:"role"`
 }
 
 type HouseholdResponse struct {
 	Household Household          `json:"household"`
 	Members   []HouseholdMember `json:"members"`
-}
-
-type CreateHouseholdRequest struct {
-	Name string `json:"name"`
-}
-
-type JoinHouseholdRequest struct {
-	InviteCode string `json:"invite_code"`
-}
-
-type HouseholdMeResponse struct {
-	Household Household         `json:"household"`
-	Members   []HouseholdMember `json:"members"`
-}
-type HouseholdMember struct {
-	UserID   string  `json:"user_id"`
-	Email    string  `json:"email"`
-	FullName *string `json:"full_name,omitempty"`
-	Role     string  `json:"role"`
 }
 
 type CreateHouseholdRequest struct {
@@ -451,6 +432,11 @@ func createHouseholdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if _, err := getUserHouseholdID(userID); err == nil {
+		respondError(w, http.StatusConflict, "User already in a household", "CONFLICT")
+		return
+	}
+
 	var req CreateHouseholdRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid request body", "INVALID_REQUEST")
@@ -524,6 +510,11 @@ func joinHouseholdHandler(w http.ResponseWriter, r *http.Request) {
 	userID, err := getUserIDFromRequest(r)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), "UNAUTHORIZED")
+		return
+	}
+
+	if _, err := getUserHouseholdID(userID); err == nil {
+		respondError(w, http.StatusConflict, "User already in a household", "CONFLICT")
 		return
 	}
 
@@ -943,123 +934,6 @@ func updatePantryHandler(w http.ResponseWriter, r *http.Request) {
 		it.ExpirationDate = exp.Time.Format("2006-01-02")
 	}
 	respondJSON(w, http.StatusOK, it)
-}
-
-// POST /api/households
-func createHouseholdHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	userID, err := getUserIDFromRequest(r)
-	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	// Check if user already in household
-	_, err = getUserHouseholdID(userID)
-	if err == nil {
-		http.Error(w, "User already in a household", http.StatusConflict)
-		return
-	}
-
-	var req struct {
-		Name string `json:"name"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-	if strings.TrimSpace(req.Name) == "" {
-		http.Error(w, "Name is required", http.StatusBadRequest)
-		return
-	}
-
-	householdID := uuid.New().String()
-	inviteCode := strings.ToUpper(uuid.New().String()[:6]) // Simple 6-char code
-
-	query := `INSERT INTO households (id, name, invite_code, created_by) VALUES ($1, $2, $3, $4)`
-	_, err = db.Exec(query, householdID, req.Name, inviteCode, userID)
-	if err != nil {
-		log.Printf("createHouseholdHandler insert error: %v", err)
-		http.Error(w, "Failed to create household", http.StatusInternalServerError)
-		return
-	}
-
-	// Add creator as owner
-	_, err = db.Exec(`INSERT INTO household_members (household_id, user_id, role) VALUES ($1, $2, 'owner')`, householdID, userID)
-	if err != nil {
-		log.Printf("createHouseholdHandler member insert error: %v", err)
-		http.Error(w, "Failed to add member", http.StatusInternalServerError)
-		return
-	}
-
-	household := Household{
-		ID:         householdID,
-		Name:       req.Name,
-		InviteCode: inviteCode,
-		CreatedBy:  userID,
-		CreatedAt:  time.Now(),
-	}
-	respondJSON(w, http.StatusCreated, household)
-}
-
-// POST /api/households/join
-func joinHouseholdHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	userID, err := getUserIDFromRequest(r)
-	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	// Check if user already in household
-	_, err = getUserHouseholdID(userID)
-	if err == nil {
-		http.Error(w, "User already in a household", http.StatusConflict)
-		return
-	}
-
-	var req struct {
-		InviteCode string `json:"invite_code"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-	if strings.TrimSpace(req.InviteCode) == "" {
-		http.Error(w, "Invite code is required", http.StatusBadRequest)
-		return
-	}
-
-	var householdID string
-	err = db.QueryRow(`SELECT id FROM households WHERE invite_code = $1`, strings.ToUpper(req.InviteCode)).Scan(&householdID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			http.Error(w, "Invalid invite code", http.StatusNotFound)
-			return
-		}
-		log.Printf("joinHouseholdHandler query error: %v", err)
-		http.Error(w, "Failed to join household", http.StatusInternalServerError)
-		return
-	}
-
-	// Add as member
-	_, err = db.Exec(`INSERT INTO household_members (household_id, user_id, role) VALUES ($1, $2, 'member')`, householdID, userID)
-	if err != nil {
-		log.Printf("joinHouseholdHandler member insert error: %v", err)
-		http.Error(w, "Failed to join household", http.StatusInternalServerError)
-		return
-	}
-
-	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"message":      "joined",
-		"household_id": householdID,
-	})
 }
 
 // GET /api/households/me
