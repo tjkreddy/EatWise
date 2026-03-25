@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
+import ShoppingList from "./pages/ShoppingList";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
@@ -19,6 +20,7 @@ function App() {
         <Route path="/household/create" element={<CreateHouseholdPage />} />
         <Route path="/household/join" element={<JoinHouseholdPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/shopping-list" element={<ShoppingList />} />
       </Routes>
     </BrowserRouter>
   );

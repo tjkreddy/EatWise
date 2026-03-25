@@ -41,3 +41,14 @@ export interface DashboardStats {
   expiredItems: number;
   householdMembers: number;
 }
+
+export interface ShoppingItem {
+  id: number;
+  name: string;
+  quantity: number;
+  unit?: string;
+  category?: string;
+  purchased: boolean;
+  purchased_at?: string;
+  created_at?: string;
+}
