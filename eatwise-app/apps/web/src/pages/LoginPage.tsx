@@ -17,7 +17,7 @@ const LoginPage: React.FC = () => {
     try {
       const data = await authAPI.login(email, password);
       console.log("Login successful:", data.user);
-      navigate("/dashboard");
+      navigate("/household-gate");
     } catch (err: any) {
       setError(err.message || "Invalid email or password");
       console.error("Login error:", err);

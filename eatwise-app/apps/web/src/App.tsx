@@ -3,6 +3,9 @@ import Dashboard from "./pages/Dashboard";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
+import HouseholdGate from "./pages/HouseholdGate";
+import CreateHouseholdPage from "./pages/CreateHouseholdPage";
+import JoinHouseholdPage from "./pages/JoinHouseholdPage";
 import "./App.css";
 
 function App() {
@@ -12,6 +15,9 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/household-gate" element={<HouseholdGate />} />
+        <Route path="/household/create" element={<CreateHouseholdPage />} />
+        <Route path="/household/join" element={<JoinHouseholdPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
       </Routes>
     </BrowserRouter>
