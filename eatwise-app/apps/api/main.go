@@ -1,11 +1,13 @@
 package main
 
 import (
+	"crypto/rand"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"math/big"
 	"net/http"
 	"os"
 	"time"
@@ -14,9 +16,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"golang.org/x/crypto/bcrypt"
 	"strconv"
 	"strings"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
@@ -45,6 +47,7 @@ type AuthResponse struct {
 
 type PantryItem struct {
 	ID             int       `json:"id"`
+	HouseholdID    string    `json:"household_id,omitempty"`
 	UserID         string    `json:"user_id"`
 	Name           string    `json:"name"`
 	Quantity       int       `json:"quantity"`
@@ -54,6 +57,34 @@ type PantryItem struct {
 	Notes          string    `json:"notes,omitempty"`
 	CreatedAt      time.Time `json:"created_at,omitempty"`
 	UpdatedAt      time.Time `json:"updated_at,omitempty"`
+}
+
+type Household struct {
+	ID         string    `json:"id"`
+	Name       string    `json:"name"`
+	InviteCode string    `json:"invite_code"`
+	CreatedBy  string    `json:"created_by"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+type HouseholdMember struct {
+	UserID   string  `json:"user_id"`
+	Email    string  `json:"email"`
+	FullName *string `json:"full_name,omitempty"`
+	Role     string  `json:"role"`
+}
+
+type CreateHouseholdRequest struct {
+	Name string `json:"name"`
+}
+
+type JoinHouseholdRequest struct {
+	InviteCode string `json:"invite_code"`
+}
+
+type HouseholdMeResponse struct {
+	Household Household         `json:"household"`
+	Members   []HouseholdMember `json:"members"`
 }
 
 var db *sql.DB
@@ -216,6 +247,13 @@ func respondJSON(w http.ResponseWriter, status int, v interface{}) {
 	json.NewEncoder(w).Encode(v)
 }
 
+func respondError(w http.ResponseWriter, status int, message string, code string) {
+	respondJSON(w, status, map[string]string{
+		"error": message,
+		"code":  code,
+	})
+}
+
 func getUserIDFromRequest(r *http.Request) (string, error) {
 	auth := r.Header.Get("Authorization")
 	if auth == "" {
@@ -258,6 +296,317 @@ func parseIDFromPath(prefix string, r *http.Request) (int, error) {
 		return 0, err
 	}
 	return id, nil
+}
+
+func generateInviteCode(length int) (string, error) {
+	const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+	b := make([]byte, length)
+	for i := range b {
+		n, err := rand.Int(rand.Reader, bigInt(int64(len(chars))))
+		if err != nil {
+			return "", err
+		}
+		b[i] = chars[n.Int64()]
+	}
+	return string(b), nil
+}
+
+func bigInt(v int64) *big.Int {
+	return new(big.Int).SetInt64(v)
+}
+
+func generateUniqueInviteCode() (string, error) {
+	for i := 0; i < 10; i++ {
+		code, err := generateInviteCode(6)
+		if err != nil {
+			return "", err
+		}
+		var exists bool
+		err = db.QueryRow(`SELECT EXISTS(SELECT 1 FROM households WHERE invite_code = $1)`, code).Scan(&exists)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return code, nil
+		}
+	}
+	return "", errors.New("failed to generate unique invite code")
+}
+
+func listMembersByHouseholdID(householdID string) ([]HouseholdMember, error) {
+	rows, err := db.Query(`
+		SELECT u.id, u.email, u.full_name, hm.role
+		FROM household_members hm
+		JOIN users u ON u.id = hm.user_id
+		WHERE hm.household_id = $1
+		ORDER BY hm.joined_at ASC
+	`, householdID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	members := []HouseholdMember{}
+	for rows.Next() {
+		var m HouseholdMember
+		var fullName sql.NullString
+		if err := rows.Scan(&m.UserID, &m.Email, &fullName, &m.Role); err != nil {
+			return nil, err
+		}
+		if fullName.Valid {
+			m.FullName = &fullName.String
+		}
+		members = append(members, m)
+	}
+	return members, nil
+}
+
+func isUserHouseholdMember(userID, householdID string) (bool, error) {
+	var exists bool
+	err := db.QueryRow(`SELECT EXISTS(SELECT 1 FROM household_members WHERE user_id = $1 AND household_id = $2)`, userID, householdID).Scan(&exists)
+	return exists, err
+}
+
+func parseHouseholdIDForMembers(path string) (string, error) {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) != 4 || parts[0] != "api" || parts[1] != "households" || parts[3] != "members" {
+		return "", errors.New("invalid household members path")
+	}
+	if _, err := uuid.Parse(parts[2]); err != nil {
+		return "", errors.New("invalid household id")
+	}
+	return parts[2], nil
+}
+
+// POST /api/households
+func createHouseholdHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
+		return
+	}
+
+	userID, err := getUserIDFromRequest(r)
+	if err != nil {
+		respondError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), "UNAUTHORIZED")
+		return
+	}
+
+	var req CreateHouseholdRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request body", "INVALID_REQUEST")
+		return
+	}
+
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" {
+		respondError(w, http.StatusBadRequest, "Household name is required", "VALIDATION_ERROR")
+		return
+	}
+
+	inviteCode, err := generateUniqueInviteCode()
+	if err != nil {
+		log.Printf("createHouseholdHandler invite code error: %v", err)
+		respondError(w, http.StatusInternalServerError, "Failed to generate invite code", "INTERNAL_ERROR")
+		return
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to start transaction", "INTERNAL_ERROR")
+		return
+	}
+	defer tx.Rollback()
+
+	householdID := uuid.New().String()
+	var createdAt time.Time
+	err = tx.QueryRow(`
+		INSERT INTO households (id, name, invite_code, created_by)
+		VALUES ($1, $2, $3, $4)
+		RETURNING created_at
+	`, householdID, req.Name, inviteCode, userID).Scan(&createdAt)
+	if err != nil {
+		log.Printf("createHouseholdHandler household insert error: %v", err)
+		respondError(w, http.StatusInternalServerError, "Failed to create household", "INTERNAL_ERROR")
+		return
+	}
+
+	_, err = tx.Exec(`
+		INSERT INTO household_members (id, household_id, user_id, role)
+		VALUES ($1, $2, $3, 'owner')
+	`, uuid.New().String(), householdID, userID)
+	if err != nil {
+		log.Printf("createHouseholdHandler membership insert error: %v", err)
+		respondError(w, http.StatusInternalServerError, "Failed to create household membership", "INTERNAL_ERROR")
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to commit transaction", "INTERNAL_ERROR")
+		return
+	}
+
+	respondJSON(w, http.StatusCreated, Household{
+		ID:         householdID,
+		Name:       req.Name,
+		InviteCode: inviteCode,
+		CreatedBy:  userID,
+		CreatedAt:  createdAt,
+	})
+}
+
+// POST /api/households/join
+func joinHouseholdHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
+		return
+	}
+
+	userID, err := getUserIDFromRequest(r)
+	if err != nil {
+		respondError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), "UNAUTHORIZED")
+		return
+	}
+
+	var req JoinHouseholdRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request body", "INVALID_REQUEST")
+		return
+	}
+
+	inviteCode := strings.ToUpper(strings.TrimSpace(req.InviteCode))
+	if inviteCode == "" {
+		respondError(w, http.StatusBadRequest, "invite_code is required", "VALIDATION_ERROR")
+		return
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to start transaction", "INTERNAL_ERROR")
+		return
+	}
+	defer tx.Rollback()
+
+	var householdID string
+	err = tx.QueryRow(`SELECT id FROM households WHERE invite_code = $1`, inviteCode).Scan(&householdID)
+	if err == sql.ErrNoRows {
+		respondError(w, http.StatusNotFound, "Invalid invite code", "NOT_FOUND")
+		return
+	}
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to find household", "INTERNAL_ERROR")
+		return
+	}
+
+	var exists bool
+	err = tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM household_members WHERE household_id = $1 AND user_id = $2)`, householdID, userID).Scan(&exists)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to verify membership", "INTERNAL_ERROR")
+		return
+	}
+	if exists {
+		respondError(w, http.StatusConflict, "User is already a member of this household", "CONFLICT")
+		return
+	}
+
+	_, err = tx.Exec(`
+		INSERT INTO household_members (id, household_id, user_id, role)
+		VALUES ($1, $2, $3, 'member')
+	`, uuid.New().String(), householdID, userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to join household", "INTERNAL_ERROR")
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to commit transaction", "INTERNAL_ERROR")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{
+		"message":      "joined",
+		"household_id": householdID,
+	})
+}
+
+// GET /api/households/me
+func getMyHouseholdHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
+		return
+	}
+
+	userID, err := getUserIDFromRequest(r)
+	if err != nil {
+		respondError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), "UNAUTHORIZED")
+		return
+	}
+
+	var h Household
+	err = db.QueryRow(`
+		SELECT h.id, h.name, h.invite_code, h.created_by, h.created_at
+		FROM household_members hm
+		JOIN households h ON h.id = hm.household_id
+		WHERE hm.user_id = $1
+		ORDER BY hm.joined_at ASC
+		LIMIT 1
+	`, userID).Scan(&h.ID, &h.Name, &h.InviteCode, &h.CreatedBy, &h.CreatedAt)
+	if err == sql.ErrNoRows {
+		respondError(w, http.StatusNotFound, "No household found for user", "NOT_FOUND")
+		return
+	}
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to fetch household", "INTERNAL_ERROR")
+		return
+	}
+
+	members, err := listMembersByHouseholdID(h.ID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to fetch household members", "INTERNAL_ERROR")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, HouseholdMeResponse{
+		Household: h,
+		Members:   members,
+	})
+}
+
+// GET /api/households/:id/members
+func listHouseholdMembersHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
+		return
+	}
+
+	userID, err := getUserIDFromRequest(r)
+	if err != nil {
+		respondError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), "UNAUTHORIZED")
+		return
+	}
+
+	householdID, err := parseHouseholdIDForMembers(r.URL.Path)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid household members path", "INVALID_REQUEST")
+		return
+	}
+
+	allowed, err := isUserHouseholdMember(userID, householdID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to verify membership", "INTERNAL_ERROR")
+		return
+	}
+	if !allowed {
+		respondError(w, http.StatusForbidden, "You are not a member of this household", "FORBIDDEN")
+		return
+	}
+
+	members, err := listMembersByHouseholdID(householdID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to fetch household members", "INTERNAL_ERROR")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, members)
 }
 
 // GET /api/pantry/items
@@ -344,15 +693,15 @@ func addPantryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	item := PantryItem{
-		ID:             id,
-		UserID:         userID,
-		Name:           req.Name,
-		Quantity:       req.Quantity,
-		Unit:           req.Unit,
-		Category:       req.Category,
-		Notes:          req.Notes,
-		CreatedAt:      createdAt,
-		UpdatedAt:      updatedAt,
+		ID:        id,
+		UserID:    userID,
+		Name:      req.Name,
+		Quantity:  req.Quantity,
+		Unit:      req.Unit,
+		Category:  req.Category,
+		Notes:     req.Notes,
+		CreatedAt: createdAt,
+		UpdatedAt: updatedAt,
 	}
 	if exp.Valid {
 		item.ExpirationDate = exp.Time.Format("2006-01-02")
@@ -532,6 +881,19 @@ func main() {
 	})
 	http.HandleFunc("/api/auth/signup", enableCORS(signupHandler))
 	http.HandleFunc("/api/auth/login", enableCORS(loginHandler))
+
+	// Household routes
+	http.HandleFunc("/api/households", enableCORS(createHouseholdHandler))
+	http.HandleFunc("/api/households/join", enableCORS(joinHouseholdHandler))
+	http.HandleFunc("/api/households/me", enableCORS(getMyHouseholdHandler))
+	http.HandleFunc("/api/households/", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/members") {
+			listHouseholdMembersHandler(w, r)
+			return
+		}
+		respondError(w, http.StatusNotFound, "Route not found", "NOT_FOUND")
+	}))
+
 	// Pantry routes
 	http.HandleFunc("/api/pantry/items", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
