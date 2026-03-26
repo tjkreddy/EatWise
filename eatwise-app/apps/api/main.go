@@ -105,6 +105,17 @@ type HouseholdMeResponse struct {
 	Members   []HouseholdMember `json:"members"`
 }
 
+type HouseholdSummaryResponse struct {
+	HouseholdID        string `json:"household_id"`
+	HouseholdName      string `json:"household_name"`
+	CurrentUserRole    string `json:"current_user_role"`
+	MembersCount       int    `json:"members_count"`
+	PantryItemsCount   int    `json:"pantry_items_count"`
+	ShoppingItemsCount int    `json:"shopping_items_count"`
+	PurchasedCount     int    `json:"purchased_count"`
+	PendingCount       int    `json:"pending_count"`
+}
+
 var db *sql.DB
 var jwtSecret []byte
 
@@ -727,6 +738,61 @@ func listHouseholdMembersHandler(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, members)
 }
 
+// GET /api/households/me/summary
+func getHouseholdSummaryHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
+		return
+	}
+
+	userID, err := getUserIDFromRequest(r)
+	if err != nil {
+		respondError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), "UNAUTHORIZED")
+		return
+	}
+
+	householdID, err := getUserHouseholdID(userID)
+	if err != nil {
+		respondError(w, http.StatusNotFound, "No household found for user", "NOT_FOUND")
+		return
+	}
+
+	var summary HouseholdSummaryResponse
+	if err := db.QueryRow(`SELECT name FROM households WHERE id = $1`, householdID).Scan(&summary.HouseholdName); err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to fetch household", "INTERNAL_ERROR")
+		return
+	}
+	summary.HouseholdID = householdID
+
+	if err := db.QueryRow(`SELECT role FROM household_members WHERE household_id = $1 AND user_id = $2`, householdID, userID).Scan(&summary.CurrentUserRole); err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to fetch household role", "INTERNAL_ERROR")
+		return
+	}
+
+	if err := db.QueryRow(`SELECT COUNT(*) FROM household_members WHERE household_id = $1`, householdID).Scan(&summary.MembersCount); err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to count household members", "INTERNAL_ERROR")
+		return
+	}
+
+	if err := db.QueryRow(`SELECT COUNT(*) FROM pantry_items WHERE household_id = $1`, householdID).Scan(&summary.PantryItemsCount); err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to count pantry items", "INTERNAL_ERROR")
+		return
+	}
+
+	if err := db.QueryRow(`SELECT COUNT(*) FROM shopping_list WHERE household_id = $1`, householdID).Scan(&summary.ShoppingItemsCount); err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to count shopping items", "INTERNAL_ERROR")
+		return
+	}
+
+	if err := db.QueryRow(`SELECT COUNT(*) FROM shopping_list WHERE household_id = $1 AND purchased = true`, householdID).Scan(&summary.PurchasedCount); err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to count purchased items", "INTERNAL_ERROR")
+		return
+	}
+	summary.PendingCount = summary.ShoppingItemsCount - summary.PurchasedCount
+
+	respondJSON(w, http.StatusOK, summary)
+}
+
 // GET /api/pantry/items
 func fetchPantryHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -1118,15 +1184,36 @@ func removeMemberHandler(w http.ResponseWriter, r *http.Request, userID string, 
 	respondJSON(w, http.StatusOK, map[string]string{"message": "member removed"})
 }
 
-// DELETE /api/households/:id or /api/households/:id/members/:userId
+// GET /api/households/:id/members
+func listMembersSubrouteHandler(w http.ResponseWriter, r *http.Request, userID string, householdID string) {
+	allowed, err := isUserHouseholdMember(userID, householdID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to verify membership", "INTERNAL_ERROR")
+		return
+	}
+	if !allowed {
+		respondError(w, http.StatusForbidden, "You are not a member of this household", "FORBIDDEN")
+		return
+	}
+
+	members, err := listMembersByHouseholdID(householdID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to fetch household members", "INTERNAL_ERROR")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, members)
+}
+
+// GET or DELETE /api/households/:id and subroutes
 func householdSubrouteHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	if r.Method != http.MethodDelete && r.Method != http.MethodGet {
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
 		return
 	}
 	userID, err := getUserIDFromRequest(r)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		respondError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), "UNAUTHORIZED")
 		return
 	}
 
@@ -1140,7 +1227,16 @@ func householdSubrouteHandler(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(path, "/")
 	householdID := parts[0]
 	if householdID == "" {
-		http.Error(w, "Invalid household ID", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, "Invalid household ID", "INVALID_REQUEST")
+		return
+	}
+
+	if r.Method == http.MethodGet {
+		if len(parts) != 2 || parts[1] != "members" {
+			respondError(w, http.StatusBadRequest, "Invalid household route", "INVALID_REQUEST")
+			return
+		}
+		listMembersSubrouteHandler(w, r, userID, householdID)
 		return
 	}
 
@@ -1150,7 +1246,7 @@ func householdSubrouteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(parts) != 3 || parts[1] != "members" || parts[2] == "" {
-		http.Error(w, "Invalid household route", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, "Invalid household route", "INVALID_REQUEST")
 		return
 	}
 
@@ -1456,6 +1552,7 @@ func main() {
 	http.HandleFunc("/api/households/join", enableCORS(joinHouseholdHandler))
 	http.HandleFunc("/api/households/leave", enableCORS(leaveHouseholdHandler))
 	http.HandleFunc("/api/households/me", enableCORS(getHouseholdHandler))
+	http.HandleFunc("/api/households/me/summary", enableCORS(getHouseholdSummaryHandler))
 	http.HandleFunc("/api/households/", enableCORS(householdSubrouteHandler))
 
 	// Pantry routes
