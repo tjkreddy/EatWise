@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authAPI } from "../lib/authAPI";
 import { householdAPI, type HouseholdMember } from "../lib/householdAPI";
@@ -16,16 +16,24 @@ const ManageHouseholdPage: React.FC = () => {
   const [leaveLoading, setLeaveLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
   const user = authAPI.getUser();
 
-  useEffect(() => {
-    if (!user) {
-      navigate("/login");
-      return;
-    }
+  const loadHousehold = useCallback(
+    async (showInitialLoader = false) => {
+      if (!user) {
+        navigate("/login");
+        return;
+      }
 
-    const loadHousehold = async () => {
+      if (showInitialLoader) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
+
       try {
         setError(null);
         const response = await householdAPI.getMyHousehold();
@@ -41,11 +49,15 @@ const ManageHouseholdPage: React.FC = () => {
         );
       } finally {
         setLoading(false);
+        setRefreshing(false);
       }
-    };
+    },
+    [navigate, user],
+  );
 
-    loadHousehold();
-  }, [navigate, user]);
+  useEffect(() => {
+    loadHousehold(true);
+  }, [loadHousehold]);
 
   const currentRole = useMemo(() => {
     if (!user) return "member";
@@ -56,6 +68,30 @@ const ManageHouseholdPage: React.FC = () => {
     );
     return me?.role === "owner" ? "owner" : "member";
   }, [members, user]);
+
+  const ownerCount = useMemo(
+    () => members.filter((member) => member.role === "owner").length,
+    [members],
+  );
+
+  const memberCount = useMemo(
+    () => members.filter((member) => member.role !== "owner").length,
+    [members],
+  );
+
+  const filteredMembers = useMemo(() => {
+    const query = memberSearch.trim().toLowerCase();
+    if (!query) return members;
+
+    return members.filter((member) => {
+      const displayName = (member.full_name || "").toLowerCase();
+      return (
+        displayName.includes(query) ||
+        member.email.toLowerCase().includes(query) ||
+        member.role.toLowerCase().includes(query)
+      );
+    });
+  }, [memberSearch, members]);
 
   const handleCopyInvite = async () => {
     if (!household) return;
@@ -121,6 +157,10 @@ const ManageHouseholdPage: React.FC = () => {
     } finally {
       setRemovingMemberId(null);
     }
+  };
+
+  const handleRefresh = async () => {
+    await loadHousehold(false);
   };
 
   const handleLogout = () => {
@@ -232,9 +272,41 @@ const ManageHouseholdPage: React.FC = () => {
             </div>
 
             <div className="bg-white border border-gray-200 rounded p-5">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Members</h2>
+              <div className="flex flex-col gap-3 mb-4">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <h2 className="text-xl font-bold text-gray-900">Members</h2>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="px-2 py-1 rounded bg-gray-100 text-gray-700 font-semibold">
+                      Total: {members.length}
+                    </span>
+                    <span className="px-2 py-1 rounded bg-amber-100 text-amber-800 font-semibold">
+                      Owners: {ownerCount}
+                    </span>
+                    <span className="px-2 py-1 rounded bg-blue-100 text-blue-800 font-semibold">
+                      Members: {memberCount}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={memberSearch}
+                    onChange={(e) => setMemberSearch(e.target.value)}
+                    placeholder="Search members by name, email, or role"
+                    title="Search members"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
+                  />
+                  <button
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="px-3 py-2 rounded border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {refreshing ? "Refreshing..." : "Refresh"}
+                  </button>
+                </div>
+              </div>
               <div className="space-y-3">
-                {members.map((member) => (
+                {filteredMembers.map((member) => (
                   <div
                     key={member.user_id}
                     className="flex items-center justify-between border-b border-gray-100 pb-3"
@@ -269,6 +341,11 @@ const ManageHouseholdPage: React.FC = () => {
                 ))}
                 {members.length === 0 && (
                   <div className="text-sm text-gray-600">No members found.</div>
+                )}
+                {members.length > 0 && filteredMembers.length === 0 && (
+                  <div className="text-sm text-gray-600">
+                    No members match your search.
+                  </div>
                 )}
               </div>
             </div>

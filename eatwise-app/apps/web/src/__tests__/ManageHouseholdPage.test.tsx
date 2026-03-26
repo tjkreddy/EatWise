@@ -124,4 +124,114 @@ describe("ManageHouseholdPage", () => {
     await screen.findByText("Members");
     expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
   });
+
+  it("filters members by search query", async () => {
+    vi.mocked(authAPIModule.authAPI.getUser).mockReturnValue({
+      id: "owner-1",
+      email: "owner@example.com",
+    } as any);
+
+    vi.mocked(householdAPIModule.householdAPI.getMyHousehold).mockResolvedValue(
+      {
+        household: {
+          id: "house-1",
+          name: "Test Household",
+          invite_code: "ABC123",
+        },
+        members: [
+          {
+            user_id: "owner-1",
+            email: "owner@example.com",
+            role: "owner",
+            full_name: "Owner One",
+          },
+          {
+            user_id: "member-1",
+            email: "member@example.com",
+            role: "member",
+            full_name: "Member One",
+          },
+        ],
+      },
+    );
+
+    render(
+      <BrowserRouter>
+        <ManageHouseholdPage />
+      </BrowserRouter>,
+    );
+
+    await screen.findByText("Owner One");
+    const searchInput = screen.getByPlaceholderText(
+      "Search members by name, email, or role",
+    );
+    fireEvent.change(searchInput, { target: { value: "member one" } });
+
+    expect(screen.getByText("Member One")).toBeDefined();
+    expect(screen.queryByText("Owner One")).toBeNull();
+  });
+
+  it("refresh button reloads household members", async () => {
+    vi.mocked(authAPIModule.authAPI.getUser).mockReturnValue({
+      id: "owner-1",
+      email: "owner@example.com",
+    } as any);
+
+    vi.mocked(householdAPIModule.householdAPI.getMyHousehold)
+      .mockResolvedValueOnce({
+        household: {
+          id: "house-1",
+          name: "Test Household",
+          invite_code: "ABC123",
+        },
+        members: [
+          {
+            user_id: "owner-1",
+            email: "owner@example.com",
+            role: "owner",
+            full_name: "Owner One",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        household: {
+          id: "house-1",
+          name: "Test Household",
+          invite_code: "ABC123",
+        },
+        members: [
+          {
+            user_id: "owner-1",
+            email: "owner@example.com",
+            role: "owner",
+            full_name: "Owner One",
+          },
+          {
+            user_id: "member-2",
+            email: "newmember@example.com",
+            role: "member",
+            full_name: "New Member",
+          },
+        ],
+      });
+
+    render(
+      <BrowserRouter>
+        <ManageHouseholdPage />
+      </BrowserRouter>,
+    );
+
+    await screen.findByText("Owner One");
+    expect(screen.queryByText("New Member")).toBeNull();
+
+    const refreshButton = screen.getByRole("button", { name: "Refresh" });
+    fireEvent.click(refreshButton);
+
+    await waitFor(() => {
+      expect(screen.getByText("New Member")).toBeDefined();
+    });
+    expect(
+      householdAPIModule.householdAPI.getMyHousehold,
+    ).toHaveBeenCalledTimes(2);
+  });
 });
