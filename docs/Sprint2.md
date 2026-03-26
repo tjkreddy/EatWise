@@ -95,6 +95,8 @@ Location: `eatwise-app/apps/web/src/__tests__/`
 6. `householdAPI.test.ts`
 
 - verifies household API client behavior.
+- includes `removeMember` success and failure scenarios for
+  `DELETE /api/households/{householdId}/members/{userId}`.
 
 7. `shoppingListAPI.test.ts`
 
@@ -241,6 +243,22 @@ Example request:
 7. `DELETE /api/households/{householdId}/members/{userId}`
 
 - remove member from household (owner only).
+- constraints:
+  - owner cannot remove self via this endpoint.
+  - target user must already be a member of the household.
+- success response:
+
+```json
+{
+  "message": "member removed"
+}
+```
+
+- common status codes for this endpoint:
+  - `200` member removed
+  - `400` invalid request (for example owner removing self)
+  - `403` requester is not household owner
+  - `404` target user not found in household
 
 ### 4.4 Pantry Endpoints
 

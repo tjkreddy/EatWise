@@ -15,6 +15,7 @@ const ManageHouseholdPage: React.FC = () => {
   const [members, setMembers] = useState<HouseholdMember[]>([]);
   const [leaveLoading, setLeaveLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
 
   const user = authAPI.getUser();
 
@@ -97,6 +98,28 @@ const ManageHouseholdPage: React.FC = () => {
       alert(err instanceof Error ? err.message : "Failed to delete household");
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  const handleRemoveMember = async (member: HouseholdMember) => {
+    if (!household) return;
+    if (
+      !window.confirm(
+        `Remove ${member.full_name || member.email} from this household?`,
+      )
+    ) {
+      return;
+    }
+
+    setRemovingMemberId(member.user_id);
+    setError(null);
+    try {
+      await householdAPI.removeMember(household.id, member.user_id);
+      setMembers((prev) => prev.filter((m) => m.user_id !== member.user_id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove member");
+    } finally {
+      setRemovingMemberId(null);
     }
   };
 
@@ -224,9 +247,24 @@ const ManageHouseholdPage: React.FC = () => {
                         {member.email}
                       </div>
                     </div>
-                    <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700 font-semibold">
-                      {member.role}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700 font-semibold">
+                        {member.role}
+                      </span>
+                      {currentRole === "owner" &&
+                        member.role !== "owner" &&
+                        member.user_id !== user?.id && (
+                          <button
+                            onClick={() => handleRemoveMember(member)}
+                            disabled={removingMemberId === member.user_id}
+                            className="text-xs px-3 py-1 rounded bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 disabled:opacity-50"
+                          >
+                            {removingMemberId === member.user_id
+                              ? "Removing..."
+                              : "Remove"}
+                          </button>
+                        )}
+                    </div>
                   </div>
                 ))}
                 {members.length === 0 && (

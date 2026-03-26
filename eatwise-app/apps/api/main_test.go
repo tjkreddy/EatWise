@@ -75,8 +75,8 @@ func setupTestHousehold(t *testing.T, ownerID string) string {
 		t.Fatalf("Failed to create test household: %v", err)
 	}
 
-	_, err = db.Exec(`INSERT INTO household_members (household_id, user_id, role) VALUES ($1, $2, 'owner')`,
-		householdID, ownerID)
+	_, err = db.Exec(`INSERT INTO household_members (household_id, user_id, role) VALUES ($1, $2, $3)`,
+		householdID, ownerID, "owner")
 	if err != nil {
 		t.Fatalf("Failed to add owner to household: %v", err)
 	}
