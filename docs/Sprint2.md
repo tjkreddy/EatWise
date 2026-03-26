@@ -32,8 +32,13 @@
 - update shopping item purchase state
 - delete shopping item
 
-5. Added centralized route dispatch and HTTP method guards.
-6. Added helper logic for JWT parsing, invite code generation, and household role/membership checks.
+5. Added household insights and listing endpoints:
+
+- list members by household id
+- household summary metrics endpoint for current user household
+
+6. Added centralized route dispatch and HTTP method guards.
+7. Added helper logic for JWT parsing, invite code generation, and household role/membership checks.
 
 ### 1.2 Frontend (React + TypeScript)
 
@@ -158,8 +163,11 @@ File: `main_test.go`
 4. `TestGetHousehold`
 5. `TestRemoveMember`
 6. `TestRemoveMemberNotOwner`
-7. `TestPantryUnauthorizedWithoutHousehold`
-8. `TestPantryCRUD`
+7. `TestListHouseholdMembers`
+8. `TestListHouseholdMembersForbiddenForNonMember`
+9. `TestGetHouseholdSummary`
+10. `TestPantryUnauthorizedWithoutHousehold`
+11. `TestPantryCRUD`
 
 Note:
 
@@ -264,6 +272,30 @@ Example request:
   - `400` invalid request (for example owner removing self)
   - `403` requester is not household owner
   - `404` target user not found in household
+
+8. `GET /api/households/{householdId}/members`
+
+- list household members for a household where requester is a member.
+- returns `403` if requester is not part of that household.
+
+9. `GET /api/households/me/summary`
+
+- return household metrics for dashboard/overview scenarios.
+
+Example response:
+
+```json
+{
+  "household_id": "a1b2c3d4-0000-0000-0000-000000000000",
+  "household_name": "Family Home",
+  "current_user_role": "owner",
+  "members_count": 3,
+  "pantry_items_count": 14,
+  "shopping_items_count": 8,
+  "purchased_count": 5,
+  "pending_count": 3
+}
+```
 
 ### 4.4 Pantry Endpoints
 

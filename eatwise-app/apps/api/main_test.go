@@ -284,6 +284,91 @@ func TestRemoveMemberNotOwner(t *testing.T) {
 	}
 }
 
+func TestListHouseholdMembers(t *testing.T) {
+	requireDB(t)
+	ownerID, ownerToken := setupTestUser(t)
+	householdID := setupTestHousehold(t, ownerID)
+
+	memberID, _ := setupTestUser(t)
+	_, err := db.Exec(`INSERT INTO household_members (household_id, user_id, role) VALUES ($1, $2, 'member')`, householdID, memberID)
+	if err != nil {
+		t.Fatalf("Failed to add member: %v", err)
+	}
+	defer cleanupTestData(t, ownerID)
+	defer cleanupTestData(t, memberID)
+
+	req := httptest.NewRequest("GET", "/api/households/"+householdID+"/members", nil)
+	req.Header.Set("Authorization", "Bearer "+ownerToken)
+
+	w := httptest.NewRecorder()
+	householdSubrouteHandler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	var members []HouseholdMember
+	if err := json.Unmarshal(w.Body.Bytes(), &members); err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+
+	if len(members) != 2 {
+		t.Fatalf("Expected 2 members, got %d", len(members))
+	}
+}
+
+func TestListHouseholdMembersForbiddenForNonMember(t *testing.T) {
+	requireDB(t)
+	ownerID, _ := setupTestUser(t)
+	householdID := setupTestHousehold(t, ownerID)
+
+	outsiderID, outsiderToken := setupTestUser(t)
+	defer cleanupTestData(t, ownerID)
+	defer cleanupTestData(t, outsiderID)
+
+	req := httptest.NewRequest("GET", "/api/households/"+householdID+"/members", nil)
+	req.Header.Set("Authorization", "Bearer "+outsiderToken)
+
+	w := httptest.NewRecorder()
+	householdSubrouteHandler(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("Expected status 403, got %d", w.Code)
+	}
+}
+
+func TestGetHouseholdSummary(t *testing.T) {
+	requireDB(t)
+	userID, token := setupTestUser(t)
+	setupTestHousehold(t, userID)
+	defer cleanupTestData(t, userID)
+
+	req := httptest.NewRequest("GET", "/api/households/me/summary", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	w := httptest.NewRecorder()
+	getHouseholdSummaryHandler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", w.Code)
+	}
+
+	var summary HouseholdSummaryResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &summary); err != nil {
+		t.Fatalf("Failed to unmarshal summary: %v", err)
+	}
+
+	if summary.HouseholdID == "" {
+		t.Fatal("Expected household_id in summary")
+	}
+	if summary.CurrentUserRole != "owner" {
+		t.Fatalf("Expected role owner, got %s", summary.CurrentUserRole)
+	}
+	if summary.MembersCount < 1 {
+		t.Fatalf("Expected at least 1 member, got %d", summary.MembersCount)
+	}
+}
+
 func TestPantryUnauthorizedWithoutHousehold(t *testing.T) {
 	requireDB(t)
 	userID, token := setupTestUser(t)
