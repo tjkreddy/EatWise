@@ -8,7 +8,7 @@ const LandingPage: React.FC = () => {
     {
       question: "How do I get started with EatWise?",
       answer:
-        "Simply sign up for a free account, add your household members, and start logging your grocery items. You can set expiration dates and track your inventory in real-time.",
+        "Simply sign up for a free account, add your household members, and start logging your shopping items. You can set expiration dates and track your inventory in real-time.",
     },
     {
       question: "Is EatWise really free?",
@@ -44,10 +44,16 @@ const LandingPage: React.FC = () => {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <div className="text-2xl font-bold text-amber-600">EatWise</div>
           <div className="flex gap-4">
-            <Link to="/login" className="border border-amber-600 text-amber-600 hover:bg-amber-50 px-4 py-2 rounded font-medium transition">
+            <Link
+              to="/login"
+              className="border border-amber-600 text-amber-600 hover:bg-amber-50 px-4 py-2 rounded font-medium transition"
+            >
               Login
             </Link>
-            <Link to="/signup" className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded font-medium">
+            <Link
+              to="/signup"
+              className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded font-medium"
+            >
               Sign Up
             </Link>
           </div>
@@ -99,7 +105,7 @@ const LandingPage: React.FC = () => {
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
             <div className="bg-white p-8 rounded-lg border border-gray-200 hover:border-amber-300 transition">
-              <div className="text-5xl mb-4">📦</div>
+              <div className="text-lg font-bold mb-4 text-amber-600">INV</div>
               <h3 className="text-2xl font-semibold text-gray-900 mb-3">
                 Smart Inventory
               </h3>
@@ -110,7 +116,7 @@ const LandingPage: React.FC = () => {
             </div>
 
             <div className="bg-white p-8 rounded-lg border border-gray-200 hover:border-amber-300 transition">
-              <div className="text-5xl mb-4">🍳</div>
+              <div className="text-lg font-bold mb-4 text-amber-600">MEAL</div>
               <h3 className="text-2xl font-semibold text-gray-900 mb-3">
                 Meal Planning
               </h3>
@@ -130,7 +136,10 @@ const LandingPage: React.FC = () => {
             Why EatWise?
           </h2>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            EatWise empowers households to make smarter food choices, reduce their environmental footprint by cutting down on waste, and ultimately save money. Join our community and experience the future of sustainable living.
+            EatWise empowers households to make smarter food choices, reduce
+            their environmental footprint by cutting down on waste, and
+            ultimately save money. Join our community and experience the future
+            of sustainable living.
           </p>
         </div>
       </div>
@@ -149,7 +158,9 @@ const LandingPage: React.FC = () => {
               </p>
             </div>
             <div className="bg-white p-8 rounded-lg border border-gray-200">
-              <div className="text-6xl font-bold text-amber-600 mb-3">$1,500</div>
+              <div className="text-6xl font-bold text-amber-600 mb-3">
+                $1,500
+              </div>
               <p className="text-gray-600 text-lg">
                 Average family saves per year by reducing food waste.
               </p>

@@ -36,7 +36,8 @@ const ShoppingList: React.FC = () => {
         const fetchedItems = await shoppingListAPI.getItems();
         setItems(fetchedItems || []);
       } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : "Failed to fetch shopping list";
+        const errorMsg =
+          err instanceof Error ? err.message : "Failed to fetch shopping list";
         setError(errorMsg);
         console.error("Error fetching shopping items:", err);
       }
@@ -53,7 +54,7 @@ const ShoppingList: React.FC = () => {
   const handleAddItem = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    
+
     const name = formData.get("name") as string;
     const quantity = parseInt(formData.get("quantity") as string);
     const unit = (formData.get("unit") as string) || undefined;
@@ -81,7 +82,8 @@ const ShoppingList: React.FC = () => {
       setShowAddForm(false);
       (e.target as HTMLFormElement).reset();
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to add item";
+      const errorMsg =
+        err instanceof Error ? err.message : "Failed to add item";
       setError(errorMsg);
       console.error("Error adding item:", err);
     }
@@ -95,7 +97,8 @@ const ShoppingList: React.FC = () => {
         : await shoppingListAPI.markUnpurchased(id);
       setItems(items.map((item) => (item.id === id ? updatedItem : item)));
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to update item";
+      const errorMsg =
+        err instanceof Error ? err.message : "Failed to update item";
       setError(errorMsg);
       console.error("Error updating item:", err);
     }
@@ -111,26 +114,11 @@ const ShoppingList: React.FC = () => {
       await shoppingListAPI.deleteItem(id);
       setItems(items.filter((item) => item.id !== id));
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to delete item";
+      const errorMsg =
+        err instanceof Error ? err.message : "Failed to delete item";
       setError(errorMsg);
       console.error("Error deleting item:", err);
     }
-  };
-
-  const getCategoryEmoji = (category?: string) => {
-    const emojiMap: { [key: string]: string } = {
-      Dairy: "🥛",
-      Vegetables: "🥬",
-      Bakery: "🍞",
-      Meat: "🍗",
-      Beverages: "🥤",
-      Fruits: "🍎",
-      Pantry: "🥫",
-      Frozen: "🧊",
-      Condiments: "🫙",
-      Uncategorized: "📦",
-    };
-    return emojiMap[category || "Uncategorized"] || "📦";
   };
 
   // Early returns after all hooks
@@ -180,7 +168,9 @@ const ShoppingList: React.FC = () => {
 
       <div className="py-10">
         <header className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-4xl font-extrabold text-gray-900">Shopping List</h1>
+          <h1 className="text-4xl font-extrabold text-gray-900">
+            Shopping List
+          </h1>
           <p className="mt-2 text-lg text-gray-600">
             Keep track of items to buy for your household.
           </p>
@@ -305,7 +295,10 @@ const ShoppingList: React.FC = () => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {pendingItems.map((item) => (
-                  <div key={item.id} className="p-4 bg-white rounded border border-gray-200">
+                  <div
+                    key={item.id}
+                    className="p-4 bg-white rounded border border-gray-200"
+                  >
                     <div className="flex items-start gap-3">
                       <input
                         type="checkbox"
@@ -315,10 +308,12 @@ const ShoppingList: React.FC = () => {
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-2xl">
-                            {getCategoryEmoji(item.category)}
+                          <span className="text-xs font-medium text-gray-500">
+                            {item.category || "Uncategorized"}
                           </span>
-                          <h3 className="font-bold text-gray-800">{item.name}</h3>
+                          <h3 className="font-bold text-gray-800">
+                            {item.name}
+                          </h3>
                         </div>
                         <p className="text-sm text-gray-600">
                           {item.quantity} {item.unit || "units"}
@@ -326,9 +321,9 @@ const ShoppingList: React.FC = () => {
                       </div>
                       <button
                         onClick={() => handleDeleteItem(item.id)}
-                        className="text-red-500 hover:text-red-700 font-bold text-lg"
+                        className="text-red-500 hover:text-red-700 font-semibold text-sm"
                       >
-                        ✕
+                        Delete
                       </button>
                     </div>
                   </div>
@@ -345,7 +340,10 @@ const ShoppingList: React.FC = () => {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {completedItems.map((item) => (
-                  <div key={item.id} className="p-4 bg-gray-50 rounded border border-gray-200">
+                  <div
+                    key={item.id}
+                    className="p-4 bg-gray-50 rounded border border-gray-200"
+                  >
                     <div className="flex items-start gap-3">
                       <input
                         type="checkbox"
@@ -355,8 +353,8 @@ const ShoppingList: React.FC = () => {
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-2xl">
-                            {getCategoryEmoji(item.category)}
+                          <span className="text-xs font-medium text-gray-500">
+                            {item.category || "Uncategorized"}
                           </span>
                           <h3 className="font-bold text-gray-500 line-through">
                             {item.name}
@@ -368,9 +366,9 @@ const ShoppingList: React.FC = () => {
                       </div>
                       <button
                         onClick={() => handleDeleteItem(item.id)}
-                        className="text-red-500 hover:text-red-700 font-bold text-lg"
+                        className="text-red-500 hover:text-red-700 font-semibold text-sm"
                       >
-                        ✕
+                        Delete
                       </button>
                     </div>
                   </div>
