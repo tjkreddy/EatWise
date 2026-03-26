@@ -26,7 +26,7 @@ describe("shoppingListAPI", () => {
         Promise.resolve({
           ok: true,
           json: () => Promise.resolve(mockItems),
-        })
+        }),
       ) as any;
 
       const items = await shoppingListAPI.getItems();
@@ -39,7 +39,7 @@ describe("shoppingListAPI", () => {
           headers: expect.objectContaining({
             Authorization: `Bearer ${mockToken}`,
           }),
-        })
+        }),
       );
     });
 
@@ -48,11 +48,11 @@ describe("shoppingListAPI", () => {
         Promise.resolve({
           ok: false,
           text: () => Promise.resolve("Failed to fetch"),
-        })
+        }),
       ) as any;
 
       await expect(shoppingListAPI.getItems()).rejects.toThrow(
-        "Failed to fetch"
+        "Failed to fetch",
       );
     });
   });
@@ -72,7 +72,7 @@ describe("shoppingListAPI", () => {
         Promise.resolve({
           ok: true,
           json: () => Promise.resolve(response),
-        })
+        }),
       ) as any;
 
       const result = await shoppingListAPI.addItem(newItem);
@@ -83,7 +83,7 @@ describe("shoppingListAPI", () => {
         expect.objectContaining({
           method: "POST",
           body: JSON.stringify(newItem),
-        })
+        }),
       );
     });
 
@@ -92,14 +92,14 @@ describe("shoppingListAPI", () => {
         Promise.resolve({
           ok: false,
           text: () => Promise.resolve("Failed to add item"),
-        })
+        }),
       ) as any;
 
       await expect(
         shoppingListAPI.addItem({
           name: "Test",
           quantity: 1,
-        })
+        }),
       ).rejects.toThrow("Failed to add item");
     });
   });
@@ -113,7 +113,7 @@ describe("shoppingListAPI", () => {
         Promise.resolve({
           ok: true,
           json: () => Promise.resolve(updatedItem),
-        })
+        }),
       ) as any;
 
       const result = await shoppingListAPI.updateItem(1, updates);
@@ -124,7 +124,7 @@ describe("shoppingListAPI", () => {
         expect.objectContaining({
           method: "PUT",
           body: JSON.stringify(updates),
-        })
+        }),
       );
     });
   });
@@ -134,7 +134,7 @@ describe("shoppingListAPI", () => {
       global.fetch = vi.fn(() =>
         Promise.resolve({
           ok: true,
-        })
+        }),
       ) as any;
 
       await shoppingListAPI.deleteItem(1);
@@ -143,7 +143,7 @@ describe("shoppingListAPI", () => {
         expect.stringContaining("/api/shopping-list/1"),
         expect.objectContaining({
           method: "DELETE",
-        })
+        }),
       );
     });
 
@@ -152,11 +152,50 @@ describe("shoppingListAPI", () => {
         Promise.resolve({
           ok: false,
           text: () => Promise.resolve("Failed to delete"),
-        })
+        }),
       ) as any;
 
       await expect(shoppingListAPI.deleteItem(1)).rejects.toThrow(
-        "Failed to delete"
+        "Failed to delete",
+      );
+    });
+  });
+
+  describe("clearPurchased", () => {
+    it("should clear purchased shopping items", async () => {
+      const response = {
+        message: "purchased items cleared",
+        deleted_count: 2,
+      };
+
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(response),
+        }),
+      ) as any;
+
+      const result = await shoppingListAPI.clearPurchased();
+
+      expect(result).toEqual(response);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/shopping-list/clear-purchased"),
+        expect.objectContaining({
+          method: "DELETE",
+        }),
+      );
+    });
+
+    it("should throw an error when clear purchased fails", async () => {
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          text: () => Promise.resolve("Failed to clear purchased items"),
+        }),
+      ) as any;
+
+      await expect(shoppingListAPI.clearPurchased()).rejects.toThrow(
+        "Failed to clear purchased items",
       );
     });
   });
@@ -169,7 +208,7 @@ describe("shoppingListAPI", () => {
         Promise.resolve({
           ok: true,
           json: () => Promise.resolve(purchasedItem),
-        })
+        }),
       ) as any;
 
       const result = await shoppingListAPI.markPurchased(1);
@@ -186,7 +225,7 @@ describe("shoppingListAPI", () => {
         Promise.resolve({
           ok: true,
           json: () => Promise.resolve(unpurchasedItem),
-        })
+        }),
       ) as any;
 
       const result = await shoppingListAPI.markUnpurchased(1);

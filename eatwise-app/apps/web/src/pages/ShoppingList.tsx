@@ -11,6 +11,7 @@ const ShoppingList: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [clearingPurchased, setClearingPurchased] = useState(false);
 
   // Check user and handle redirects
   useEffect(() => {
@@ -118,6 +119,27 @@ const ShoppingList: React.FC = () => {
         err instanceof Error ? err.message : "Failed to delete item";
       setError(errorMsg);
       console.error("Error deleting item:", err);
+    }
+  };
+
+  const handleClearPurchased = async () => {
+    if (completedItems.length === 0) return;
+    if (!window.confirm("Clear all purchased items from this shopping list?")) {
+      return;
+    }
+
+    try {
+      setClearingPurchased(true);
+      setError(null);
+      await shoppingListAPI.clearPurchased();
+      setItems(items.filter((item) => !item.purchased));
+    } catch (err) {
+      const errorMsg =
+        err instanceof Error ? err.message : "Failed to clear purchased items";
+      setError(errorMsg);
+      console.error("Error clearing purchased items:", err);
+    } finally {
+      setClearingPurchased(false);
     }
   };
 
@@ -338,9 +360,18 @@ const ShoppingList: React.FC = () => {
           {/* Completed Items */}
           {completedItems.length > 0 && (
             <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">
-                Already Bought ({completedItems.length})
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-gray-800">
+                  Already Bought ({completedItems.length})
+                </h2>
+                <button
+                  onClick={handleClearPurchased}
+                  disabled={clearingPurchased}
+                  className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded font-medium transition-colors disabled:opacity-50"
+                >
+                  {clearingPurchased ? "Clearing..." : "Clear Purchased"}
+                </button>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {completedItems.map((item) => (
                   <div

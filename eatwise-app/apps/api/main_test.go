@@ -446,3 +446,53 @@ func TestPantryCRUD(t *testing.T) {
 		t.Errorf("Expected name 'Test Item', got '%s'", items[0].Name)
 	}
 }
+
+func TestClearPurchasedShoppingItems(t *testing.T) {
+	requireDB(t)
+	userID, token := setupTestUser(t)
+	householdID := setupTestHousehold(t, userID)
+	defer cleanupTestData(t, userID)
+
+	// Insert purchased and unpurchased items.
+	_, err := db.Exec(`
+		INSERT INTO shopping_list (household_id, user_id, name, quantity, unit, category, purchased)
+		VALUES
+		($1, $2, 'Milk', 1, 'liters', 'Dairy', true),
+		($1, $2, 'Bread', 1, 'pieces', 'Bakery', false)
+	`, householdID, userID)
+	if err != nil {
+		t.Fatalf("Failed to seed shopping items: %v", err)
+	}
+
+	req := httptest.NewRequest("DELETE", "/api/shopping-list/clear-purchased", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	w := httptest.NewRecorder()
+	clearPurchasedShoppingItemsHandler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", w.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if resp["message"] != "purchased items cleared" {
+		t.Fatalf("Unexpected message: %v", resp["message"])
+	}
+
+	if resp["deleted_count"].(float64) != 1 {
+		t.Fatalf("Expected deleted_count 1, got %v", resp["deleted_count"])
+	}
+
+	var remaining int
+	err = db.QueryRow(`SELECT COUNT(*) FROM shopping_list WHERE household_id = $1`, householdID).Scan(&remaining)
+	if err != nil {
+		t.Fatalf("Failed to count remaining items: %v", err)
+	}
+	if remaining != 1 {
+		t.Fatalf("Expected 1 remaining item, got %d", remaining)
+	}
+}

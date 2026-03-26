@@ -1529,6 +1529,46 @@ func deleteShoppingItemHandler(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]string{"message": "item deleted"})
 }
 
+// DELETE /api/shopping-list/clear-purchased
+func clearPurchasedShoppingItemsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, err := getUserIDFromRequest(r)
+	if err != nil {
+		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	householdID, err := getUserHouseholdID(userID)
+	if err != nil {
+		http.Error(w, "User not in household: "+err.Error(), http.StatusNotFound)
+		return
+	}
+
+	result, err := db.Exec(`
+		DELETE FROM shopping_list
+		WHERE household_id = $1 AND purchased = true
+	`, householdID)
+	if err != nil {
+		http.Error(w, "Failed to clear purchased items", http.StatusInternalServerError)
+		return
+	}
+
+	deletedCount, err := result.RowsAffected()
+	if err != nil {
+		http.Error(w, "Failed to clear purchased items", http.StatusInternalServerError)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"message":       "purchased items cleared",
+		"deleted_count": deletedCount,
+	})
+}
+
 func main() {
 	if err := initDB(); err != nil {
 		log.Fatalf("Database connection failed: %v", err)
@@ -1591,6 +1631,7 @@ func main() {
 		}
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}))
+	http.HandleFunc("/api/shopping-list/clear-purchased", enableCORS(clearPurchasedShoppingItemsHandler))
 	http.HandleFunc("/api/shopping-list/", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodDelete {
 			deleteShoppingItemHandler(w, r)

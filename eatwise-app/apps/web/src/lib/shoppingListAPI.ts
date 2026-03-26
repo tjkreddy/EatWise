@@ -25,7 +25,8 @@ export interface UpdateShoppingItemRequest {
   category?: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 const makeAuthHeaders = () => ({
   "Content-Type": "application/json",
@@ -40,7 +41,9 @@ export const shoppingListAPI = {
     });
 
     if (!response.ok) {
-      throw new Error(await response.text() || "Failed to fetch shopping items");
+      throw new Error(
+        (await response.text()) || "Failed to fetch shopping items",
+      );
     }
 
     return response.json();
@@ -54,7 +57,7 @@ export const shoppingListAPI = {
     });
 
     if (!response.ok) {
-      throw new Error(await response.text() || "Failed to add shopping item");
+      throw new Error((await response.text()) || "Failed to add shopping item");
     }
 
     return response.json();
@@ -62,7 +65,7 @@ export const shoppingListAPI = {
 
   updateItem: async (
     id: number,
-    updates: UpdateShoppingItemRequest
+    updates: UpdateShoppingItemRequest,
   ): Promise<ShoppingItem> => {
     const response = await fetch(`${API_BASE_URL}/api/shopping-list/${id}`, {
       method: "PUT",
@@ -71,7 +74,9 @@ export const shoppingListAPI = {
     });
 
     if (!response.ok) {
-      throw new Error(await response.text() || "Failed to update shopping item");
+      throw new Error(
+        (await response.text()) || "Failed to update shopping item",
+      );
     }
 
     return response.json();
@@ -84,8 +89,31 @@ export const shoppingListAPI = {
     });
 
     if (!response.ok) {
-      throw new Error(await response.text() || "Failed to delete shopping item");
+      throw new Error(
+        (await response.text()) || "Failed to delete shopping item",
+      );
     }
+  },
+
+  clearPurchased: async (): Promise<{
+    message: string;
+    deleted_count: number;
+  }> => {
+    const response = await fetch(
+      `${API_BASE_URL}/api/shopping-list/clear-purchased`,
+      {
+        method: "DELETE",
+        headers: makeAuthHeaders(),
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        (await response.text()) || "Failed to clear purchased items",
+      );
+    }
+
+    return response.json();
   },
 
   markPurchased: async (id: number): Promise<ShoppingItem> => {

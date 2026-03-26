@@ -365,6 +365,19 @@ Example request:
 
 - delete shopping item.
 
+5. `DELETE /api/shopping-list/clear-purchased`
+
+- remove all purchased items for current household.
+
+Example response:
+
+```json
+{
+  "message": "purchased items cleared",
+  "deleted_count": 3
+}
+```
+
 ### 4.6 Response and Error Notes
 
 1. API uses a mix of plain-text errors (`http.Error`) and JSON errors (`respondError`) depending on handler.
