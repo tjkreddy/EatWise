@@ -1,341 +1,219 @@
-# Sprint 2 - EatWise Product Logic and UI Specification
+# Sprint 2 Report
 
-## 1. Purpose
+## 1. Detailed Work Completed in Sprint 2
 
-EatWise helps individuals and households track pantry inventory, reduce food waste, and plan restocking.
+### Backend (Go API)
 
-This document defines:
+1. Implemented authentication endpoints:
 
-1. End-to-end product logic for all core and planned features.
-2. UI behavior and screen requirements.
-3. Backend data and API contracts needed for implementation.
-4. Test and delivery expectations for Sprint 2.
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
 
-## 2. Product Goals
+2. Implemented household management endpoints:
 
-1. Let authenticated users manage pantry items (create, view, update, delete).
-2. Support expiration-aware inventory and low-stock awareness.
-3. Support household collaboration with invite codes.
-4. Support shopping-list workflows (manual and automatic from pantry state).
-5. Provide predictable API contracts and testable behavior.
+- create household
+- join household via invite code
+- get current household details and members
+- leave household (member flow)
+- delete household (owner flow)
+- remove household member (owner flow)
 
-## 3. User Roles
+3. Implemented pantry endpoints (household-scoped):
 
-1. Guest: can view landing page, can sign up/login.
-2. Authenticated User: can manage own profile and pantry/household data.
-3. Household Owner: can invite and remove members, manage household settings.
-4. Household Member: can manage shared pantry and shopping list.
+- fetch items
+- add item
+- update item
+- delete item
 
-## 4. Feature Scope (Target State)
+4. Implemented shopping list endpoints (household-scoped):
 
-### 4.1 Authentication
+- fetch shopping items
+- add shopping item
+- update shopping item purchase state
+- delete shopping item
 
-1. Sign up with email, password, optional full name.
-2. Login with email/password.
-3. JWT token used for protected APIs.
-4. Logout clears local session.
+5. Added route dispatch and method guards for API route groups.
+6. Added helper logic for token parsing, invite code generation, and household membership/ownership checks.
 
-### 4.2 Pantry Management
+### Frontend (React + TypeScript)
 
-1. List pantry items by active household.
-2. Add pantry item with:
-   name, quantity, unit, category, expiration date, notes.
-3. Edit pantry item fields.
-4. Delete pantry item.
-5. Sort/filter by category and expiry status.
+1. Added and connected feature pages:
 
-### 4.3 Alerts and Insights
+- pantry list page
+- shopping list page
+- manage household page
 
-1. Expiring soon: item expiry <= 7 days.
-2. Critical expiry: item expiry <= 2 days.
-3. Expired: expiry date < today.
-4. Low stock: quantity <= threshold (default threshold = 1, configurable later).
+2. Connected left-nav and top-nav routing between dashboard and feature pages.
+3. Added household UX flow:
 
-### 4.4 Shopping List
+- create/join household
+- invite code copy
+- leave household for member
+- delete household for owner
 
-1. Manual add to shopping list.
-2. Manual remove or mark purchased.
-3. Auto-create suggestion when pantry quantity becomes 0.
-4. Shopping list scoped to active household.
+4. Updated dashboard layout per requests (header cards and content cleanup).
+5. Fixed dashboard category counting logic by normalizing category values.
+6. Updated pantry add form fields `unit` and `category` to use dropdown selections.
 
-### 4.5 Household Collaboration
+### Quality and Validation
 
-1. Create household.
-2. Generate and share invite code.
-3. Join household using invite code.
-4. View member list.
-5. Owner can remove member.
-6. Pantry and shopping list are household-scoped.
+1. Added Cypress coverage for key frontend flows.
+2. Added backend unit tests for pure helpers and handler method behavior.
+3. Updated backend DB-backed tests to skip cleanly when DB is unavailable.
+4. Verified backend test suite using `go test ./...` in `eatwise-app/apps/api`.
 
-## 5. Current vs Sprint 2 Completion
+## 2. Frontend Tests
 
-### 5.1 Already Implemented
+### Frontend Unit Tests (Vitest)
 
-1. Auth endpoints and login/signup UI.
-2. Pantry CRUD backend endpoints.
-3. Dashboard list/add/delete/update flows.
-4. Basic expiration logic in dashboard.
+Location: `eatwise-app/apps/web/src/__tests__/`
 
-### 5.2 Pending for Sprint 2
+1. `LandingPage.test.tsx`
 
-1. Household APIs and data model.
-2. Shopping list APIs and UI.
-3. Unified API client + env-based backend URL usage.
-4. Frontend and backend test coverage.
-5. Formal endpoint schema documentation (this document section 9).
+- validates landing page render and CTA visibility.
 
-## 6. UI Specification
+2. `LoginPage.test.tsx`
 
-### 6.1 Landing Page
+- validates login form rendering.
+- validates input interaction.
+- validates submit behavior and error handling.
+- validates post-login navigation behavior.
 
-Purpose:
-Explain value proposition and route users to signup/login.
+3. `Dashboard.test.tsx`
 
-Required sections:
+- validates dashboard render and expected content sections.
 
-1. Hero headline and CTA buttons (`Sign up`, `Log in`).
-2. Feature cards: Pantry, Alerts, Household, Shopping.
-3. Footer with project/team info.
+4. `ShoppingList.test.tsx`
 
-### 6.2 Signup Page
+- validates authenticated render path.
+- validates unauthenticated redirect path.
+- validates loading and error states.
+- validates add/list shopping item behaviors.
 
-Fields:
+5. `authAPI.test.ts`
 
-1. Full name (optional).
-2. Email (required).
-3. Password (required, minimum 6).
+- validates auth API utility behavior.
 
-Behavior:
+6. `householdAPI.test.ts`
 
-1. Client-side validation.
-2. On success store token/user and redirect to household gate.
-3. On failure show inline error message.
+- validates household API utility behavior.
 
-### 6.3 Login Page
+7. `shoppingListAPI.test.ts`
 
-Fields:
+- validates shopping list API utility behavior.
 
-1. Email.
-2. Password.
+### Cypress Tests (Frontend E2E)
 
-Behavior:
+Location: `eatwise-app/apps/web/cypress/e2e/`
 
-1. On success redirect to household gate/dashboard.
-2. On failure show invalid credentials message.
+1. `simple.cy.ts`
 
-### 6.4 Household Gate Page (New)
+- verifies landing page load.
+- verifies login and signup navigation clicks.
+- verifies simple form-fill interaction.
 
-Condition:
-Shown when user is authenticated but has no active household.
+2. `eatwise.cy.ts`
 
-Actions:
+- verifies authentication flows.
+- verifies household management flow.
+- verifies shopping list flow.
+- verifies dashboard/navigation/logout flow.
 
-1. Create household.
-2. Join household with invite code.
+## 3. Backend Unit Tests
 
-### 6.5 Create Household Page (New)
+Location: `eatwise-app/apps/api/`
 
-Fields:
+### Pure Unit Tests
 
-1. Household name.
+File: `unit_handlers_test.go`
 
-On success:
+1. `TestHashPasswordAndCheckPassword`
+2. `TestGenerateJWTAndGetUserIDFromRequest`
+3. `TestGetUserIDFromRequestErrors`
+4. `TestParseIDFromPath`
+5. `TestParseIDFromPathErrors`
+6. `TestGenerateInviteCode`
+7. `TestParseHouseholdIDForMembers`
+8. `TestEnableCORSOptions`
+9. `TestEnableCORSPassThrough`
+10. `TestRespondJSONAndRespondError`
+11. `TestHandlerMethodGuards`
+12. `TestHouseholdsRootHandlerMethodDispatch`
+13. `TestHouseholdSubrouteHandlerUnauthorized`
+14. `TestSignupValidationWithoutDBAccess`
+15. `TestLoginInvalidBodyWithoutDBAccess`
 
-1. Display invite code.
-2. Copy invite code button.
-3. Continue to dashboard.
+### DB-Backed API Tests
 
-### 6.6 Join Household Page (New)
+File: `main_test.go`
 
-Fields:
+1. `TestCreateHousehold`
+2. `TestCreateHouseholdAlreadyInHousehold`
+3. `TestJoinHousehold`
+4. `TestGetHousehold`
+5. `TestRemoveMember`
+6. `TestRemoveMemberNotOwner`
+7. `TestPantryUnauthorizedWithoutHousehold`
+8. `TestPantryCRUD`
 
-1. Invite code.
+Note:
 
-On success:
+- DB-backed tests auto-skip when DB is unavailable.
 
-1. Join membership.
-2. Redirect to dashboard.
+## 4. Backend API Documentation
 
-### 6.7 Dashboard Page
+Implementation source: `eatwise-app/apps/api/main.go`
 
-Sections:
+Base URL (local): `http://localhost:8080`
 
-1. Top bar: user, household name, logout.
-2. Stats cards: total items, expiring soon, expired, members.
-3. Alerts panel: expiry and low-stock alerts.
-4. Pantry table/cards.
-5. Add/Edit item form modal or inline panel.
-6. Category filter and quick search.
-7. Member list panel.
+Protected endpoint auth header:
 
-Behavior:
+- `Authorization: Bearer <jwt>`
 
-1. Loads pantry and household context after login.
-2. Uses optimistic or post-success state update for CRUD.
-3. Shows clear empty state when no items.
+### Authentication APIs
 
-### 6.8 Shopping List Page (New)
+1. `POST /api/auth/signup`
 
-Sections:
+- creates user and returns token + user.
 
-1. Pending list.
-2. Completed list (optional first iteration).
-3. Add item input.
-
-Actions:
-
-1. Add item.
-2. Mark purchased.
-3. Delete item.
-
-## 7. Data Model (Sprint 2 Target)
-
-### 7.1 users
-
-1. id (uuid, pk)
-2. email (text, unique, not null)
-3. password_hash (text, not null)
-4. full_name (text, nullable)
-5. created_at, updated_at (timestamp)
-
-### 7.2 households
-
-1. id (uuid, pk)
-2. name (text, not null)
-3. invite_code (text, unique, not null)
-4. created_by (uuid, fk users.id)
-5. created_at, updated_at
-
-### 7.3 household_members
-
-1. id (uuid, pk)
-2. household_id (uuid, fk households.id)
-3. user_id (uuid, fk users.id)
-4. role (text: owner/member)
-5. joined_at
-6. unique(household_id, user_id)
-
-### 7.4 pantry_items
-
-1. id (serial/int, pk)
-2. household_id (uuid, fk households.id)
-3. user_id (uuid, fk users.id) - creator or last updater
-4. name (text)
-5. quantity (int)
-6. unit (text)
-7. category (text)
-8. expiration_date (date)
-9. notes (text)
-10. created_at, updated_at
-
-### 7.5 shopping_list_items
-
-1. id (uuid, pk)
-2. household_id (uuid, fk households.id)
-3. name (text, not null)
-4. quantity (int, default 1)
-5. unit (text)
-6. source (manual|auto_low_stock)
-7. status (pending|purchased)
-8. created_by (uuid, fk users.id)
-9. created_at, updated_at
-
-## 8. Business Logic Rules
-
-1. All pantry and shopping list operations require auth token.
-2. User must belong to household to access household data.
-3. Owner permissions required for member removal.
-4. Invite codes are uppercase alphanumeric and unique.
-5. Quantity must be non-negative.
-6. Expiration date must be valid `YYYY-MM-DD`.
-7. Auto shopping suggestion is generated when item quantity is set to 0.
-8. Duplicate household membership is rejected.
-
-## 9. API Contracts (Request/Response Schemas)
-
-All protected routes require header:
-`Authorization: Bearer <token>`
-
-### 9.1 Auth
-
-#### POST `/api/auth/signup`
-
-Request:
+Example body:
 
 ```json
 {
   "email": "user@example.com",
-  "password": "secret123",
-  "full_name": "Alex"
+  "password": "TestPassword123",
+  "full_name": "Jane Doe"
 }
 ```
 
-Response 200:
+2. `POST /api/auth/login`
 
-```json
-{
-  "token": "jwt-token",
-  "user": {
-    "id": "uuid",
-    "email": "user@example.com",
-    "full_name": "Alex",
-    "created_at": "2026-03-23T19:30:00Z"
-  }
-}
-```
+- logs in user and returns token + user.
 
-#### POST `/api/auth/login`
-
-Request:
+Example body:
 
 ```json
 {
   "email": "user@example.com",
-  "password": "secret123"
+  "password": "TestPassword123"
 }
 ```
 
-Response 200:
+### Household APIs
 
-```json
-{
-  "token": "jwt-token",
-  "user": {
-    "id": "uuid",
-    "email": "user@example.com",
-    "full_name": "Alex",
-    "created_at": "2026-03-23T19:30:00Z"
-  }
-}
-```
+1. `POST /api/households`
 
-### 9.2 Households
+- create household for authenticated user as owner.
 
-#### POST `/api/households`
+2. `DELETE /api/households`
 
-Request:
+- delete current household (owner only).
 
-```json
-{
-  "name": "Room 301"
-}
-```
+3. `POST /api/households/join`
 
-Response 201:
+- join household by invite code.
 
-```json
-{
-  "id": "uuid",
-  "name": "Room 301",
-  "invite_code": "AB12CD",
-  "created_by": "user-uuid",
-  "created_at": "2026-03-23T19:35:00Z"
-}
-```
-
-#### POST `/api/households/join`
-
-Request:
+Example body:
 
 ```json
 {
@@ -343,396 +221,103 @@ Request:
 }
 ```
 
-Response 200:
+4. `POST /api/households/leave`
 
-```json
-{
-  "message": "joined",
-  "household_id": "uuid"
-}
-```
+- leave household (member only, owner cannot directly leave).
 
-#### GET `/api/households/me`
+5. `GET /api/households/me`
 
-Response 200:
+- return current household and members.
 
-```json
-{
-  "household": {
-    "id": "uuid",
-    "name": "Room 301",
-    "invite_code": "AB12CD"
-  },
-  "members": [
-    {
-      "user_id": "uuid",
-      "email": "owner@example.com",
-      "full_name": "Owner",
-      "role": "owner"
-    }
-  ]
-}
-```
+6. `DELETE /api/households/{householdId}`
 
-#### DELETE `/api/households/:id/members/:userId`
+- delete specific household (owner only).
 
-Response 200:
+7. `DELETE /api/households/{householdId}/members/{userId}`
 
-```json
-{
-  "message": "member removed"
-}
-```
+- remove member from household (owner only).
 
-### 9.3 Pantry
+### Pantry APIs
 
-#### GET `/api/pantry/items`
+1. `GET /api/pantry/items`
 
-Response 200:
+- list pantry items for current household.
 
-```json
-[
-  {
-    "id": 1,
-    "household_id": "uuid",
-    "user_id": "uuid",
-    "name": "Milk",
-    "quantity": 1,
-    "unit": "L",
-    "category": "Dairy",
-    "expiration_date": "2026-03-28",
-    "notes": "Low fat",
-    "created_at": "2026-03-23T19:40:00Z",
-    "updated_at": "2026-03-23T19:40:00Z"
-  }
-]
-```
+2. `POST /api/pantry/items`
 
-#### POST `/api/pantry/items`
+- add pantry item.
 
-Request:
+Example body:
 
 ```json
 {
   "name": "Milk",
-  "quantity": 1,
-  "unit": "L",
+  "quantity": 2,
+  "unit": "liters",
   "category": "Dairy",
-  "expiration_date": "2026-03-28",
+  "expiration_date": "2026-03-30",
   "notes": "Low fat"
 }
 ```
 
-Response 201: pantry item object.
+3. `PUT /api/pantry/items/{id}`
 
-#### PUT `/api/pantry/items/:id`
+- update pantry item fields.
 
-Request:
+4. `DELETE /api/pantry/items/{id}`
 
-```json
-{
-  "quantity": 0,
-  "notes": "Finished"
-}
-```
+- delete pantry item.
 
-Response 200: updated pantry item object.
+### Shopping List APIs
 
-#### DELETE `/api/pantry/items/:id`
+1. `GET /api/shopping-list`
 
-Response 200:
+- list shopping items for current household.
 
-```json
-{
-  "message": "deleted"
-}
-```
+2. `POST /api/shopping-list`
 
-### 9.4 Shopping List
+- add shopping item.
 
-#### GET `/api/shopping-list/items`
-
-Response 200:
-
-```json
-[
-  {
-    "id": "uuid",
-    "household_id": "uuid",
-    "name": "Eggs",
-    "quantity": 12,
-    "unit": "pcs",
-    "source": "manual",
-    "status": "pending",
-    "created_at": "2026-03-23T19:45:00Z"
-  }
-]
-```
-
-#### POST `/api/shopping-list/items`
-
-Request:
+Example body:
 
 ```json
 {
-  "name": "Eggs",
-  "quantity": 12,
-  "unit": "pcs"
+  "name": "Bread",
+  "quantity": 1,
+  "unit": "pieces",
+  "category": "Bakery"
 }
 ```
 
-Response 201: shopping list item object.
+3. `PUT /api/shopping-list/{id}`
 
-#### PUT `/api/shopping-list/items/:id`
+- update shopping item (primarily `purchased` state).
 
-Request:
+Example body:
 
 ```json
 {
-  "status": "purchased"
+  "purchased": true
 }
 ```
 
-Response 200: updated shopping list item.
+4. `DELETE /api/shopping-list/{id}`
 
-#### DELETE `/api/shopping-list/items/:id`
+- delete shopping item.
 
-Response 200:
+### Common Status Codes
 
-```json
-{
-  "message": "deleted"
-}
-```
+1. `200` success
+2. `201` created
+3. `400` bad request
+4. `401` unauthorized
+5. `403` forbidden
+6. `404` not found
+7. `405` method not allowed
+8. `409` conflict
+9. `500` internal server error
 
-### 9.5 Error Schema
+### Environment Variables
 
-All errors should follow:
-
-```json
-{
-  "error": "Human readable message",
-  "code": "ERROR_CODE"
-}
-```
-
-## 10. Frontend Architecture Guidelines
-
-1. Use `VITE_API_BASE_URL` in `.env` instead of hardcoded URLs.
-2. Centralize HTTP calls in `src/lib/apiClient.ts`.
-3. Keep page components UI-focused and move data logic to hooks/services.
-4. Add shared types under `src/types` aligned with API schemas.
-
-## 11. Testing Strategy
-
-### 11.1 Frontend
-
-1. Unit tests for form validation and mapping helpers.
-2. Component tests for household gate and dashboard states.
-3. Cypress flows:
-   signup/login, create household, join household, pantry CRUD, shopping list.
-
-### 11.2 Backend
-
-1. Handler tests for auth, household, pantry, shopping list.
-2. Service tests for business rules (membership checks, invite handling).
-3. Integration smoke test against test database or isolated schema.
-
-## 12. Sprint 2 Work Split (4 Members)
-
-### Member 1 - Frontend Integration
-
-1. API client abstraction and env URL migration.
-2. Household create/join UI and routing.
-3. Dashboard household context integration.
-
-### Member 2 - Frontend Testing and UX
-
-1. Unit tests and Cypress tests.
-2. Shopping list UI.
-3. Error/loading/empty-state UX improvements.
-
-### Member 3 - Backend Data and APIs
-
-1. DB migrations for household and shopping list tables.
-2. Household and shopping list endpoints.
-3. Invite code generation and membership rules.
-
-### Member 4 - Backend Security and Quality
-
-1. JWT and household authorization middleware.
-2. Pantry scoping by household.
-3. `_test.go` coverage and API docs verification.
-
-## 13. Definition of Done
-
-1. Real DB-backed backend starts reliably with configured `DATABASE_URL`.
-2. No mock backend path in production startup flow.
-3. Household create/join works end-to-end.
-4. Pantry and shopping list are shared and scoped by household.
-5. UI screens and API behavior match this document.
-6. Critical tests pass in frontend and backend pipelines.
-
-## 14. Sprint 2 Implementation Status
-
-### Frontend Implementation - COMPLETED ✅
-
-#### APIs Updated
-- **authAPI.ts**: Updated to use `VITE_API_BASE_URL` environment variable
-- **householdAPI.ts**: Already implemented with full household CRUD operations
-- **shoppingListAPI.ts**: NEW - Complete shopping list management (add, update, delete, mark purchased)
-
-#### Components Updated
-- **Dashboard.tsx**: 
-  - ✅ Household name displayed in header
-  - ✅ Fetches household data from API
-  - ✅ Loads household members from API with loading/error states
-  - ✅ Handles fallback to current user if no household
-  - ✅ All API URLs updated to use environment variable
-  
-- **ShoppingList.tsx**: NEW - Full shopping list page with:
-  - ✅ Add item form with validation
-  - ✅ Mark item as purchased/unpurchased
-  - ✅ Delete items with confirmation
-  - ✅ Separate pending and completed items sections
-  - ✅ Error handling and loading states
-  - ✅ Category and unit selection
-
-#### Types & Interfaces
-- **types/index.ts**: Added `ShoppingItem` interface
-
-#### Routing
-- **App.tsx**: Added route for `/shopping-list`
-
-### Testing Implementation - COMPLETED ✅
-
-#### Unit Tests
-- **src/__tests__/validation.test.ts**: 20 comprehensive test cases covering:
-  - ✅ Form validation (empty names, quantities, formats)
-  - ✅ State transitions (add, update, delete, mark purchased)
-  - ✅ Date calculations and expiration status logic
-  - ✅ Category filtering
-  - ✅ Error handling
-  
-- **Test Framework**: Vitest configured with `vitest.config.ts`
-- **Commands**: 
-  - `npm test` - Run all tests
-  - `npm test -- --watch` - Watch mode
-  - `npm run test:ui` - Interactive UI
-  - `npm run test:cov` - Coverage report
-
-#### E2E Tests
-- **cypress/e2e/eatwise.cy.ts**: 30+ comprehensive test cases covering:
-  - ✅ Authentication flow (signup, login, logout)
-  - ✅ Household creation and management
-  - ✅ Shopping list CRUD operations
-  - ✅ Form validation and error states
-  - ✅ Dashboard household display
-  - ✅ Navigation between pages
-  - ✅ Member panel display
-  
-- **Test Framework**: Cypress configured with `cypress.config.ts`
-- **Commands**:
-  - `npm run cypress:open` - Interactive test runner
-  - `npm run cypress:run` - Headless execution
-
-#### Test Documentation
-- **TESTING.md**: Complete guide including:
-  - Setup instructions
-  - How to run unit and E2E tests
-  - Test scenarios covered
-  - Troubleshooting guide
-  - CI/CD integration examples
-  - Performance metrics
-
-### Features Delivered
-
-#### Dashboard Enhancements
-- [x] Household name displayed in navigation
-- [x] Dynamic member list loaded from API
-- [x] Loading state while fetching members
-- [x] Error display if household load fails
-- [x] Graceful fallback to current user
-- [x] Shopping list navigation link
-
-#### Shopping List Page
-- [x] Full CRUD interface
-- [x] Add item with name, quantity, unit, category
-- [x] Mark items as purchased (visual distinction)
-- [x] Delete items with confirmation
-- [x] Pending and completed sections
-- [x] Form validation
-- [x] Error handling
-- [x] Empty state messaging
-
-#### API Integration
-- [x] Environment-based API URLs for all modules
-- [x] Consistent error handling across APIs
-- [x] Shopping list API calls
-- [x] Household API calls
-- [x] Bearer token authentication
-
-#### Code Quality
-- [x] TypeScript strict mode enabled
-- [x] Proper error handling
-- [x] Loading/error states in UI
-- [x] Validated form inputs
-- [x] Clean component structure
-- [x] Reusable helper functions (generateAvatarColor)
-
-### Testing Coverage
-
-#### Unit Test Results
-- 20/20 tests passing
-- Categories: Validation, State Management, Error Handling
-- Coverage: Forms, logic, calculations, state transitions
-
-#### E2E Test Scenarios
-- Authentication: 3 tests (signup, login, invalid)
-- Household: 2 tests (create, invite code)
-- Shopping List: 7 tests (add, multiple, purchase, delete, validate)
-- Dashboard: 4 tests (header display, members panel, loading)
-- Navigation: 2 tests (between pages, logout)
-
-### Configuration Files
-- `vitest.config.ts` - Unit test configuration
-- `cypress.config.ts` - E2E test configuration
-- `package.json` - Updated with test scripts
-
-### Next Steps / Not Implemented
-
-- [ ] Auto-generate shopping items from low-stock pantry items
-- [ ] Household member removal (owner only)
-- [ ] Edit pantry items (update existing)
-- [ ] Household settings/configuration UI
-- [ ] Advanced search and sorting UI controls
-- [ ] Mobile responsive optimizations (beyond base Tailwind)
-- [ ] Real-time synchronization/WebSocket support
-- [ ] Offline mode caching
-
-### Known Limitations
-
-1. Shopping list API endpoints must be implemented on backend
-2. Household members endpoint must return proper member list
-3. Tests require backend to be running for E2E suite
-4. Test data generated with timestamps to avoid conflicts
-5. Currently tests only cover happy path (full coverage can expand)
-
-### How to Run Tests
-
-**Unit Tests:**
-```bash
-cd eatwise-app/apps/web
-npm install --save-dev vitest happy-dom @vitest/ui @vitest/coverage-v8
-npm test
-```
-
-**E2E Tests:**
-```bash
-cd eatwise-app/apps/web
-npm install --save-dev cypress @cypress/schematic
-npm run cypress:open  # Interactive
-npm run cypress:run   # Headless
-```
-
-See `TESTING.md` for complete setup and execution guide.
+1. `DATABASE_URL` (required)
+2. `JWT_SECRET` (recommended)
