@@ -63,11 +63,11 @@ const LandingPage: React.FC = () => {
         }}
       >
         <div className="absolute inset-0 bg-black opacity-60"></div>
-        <div className="relative z-10 text-center max-w-3xl">
-          <h1 className="text-5xl md:text-6xl font-extrabold leading-tight mb-4 text-amber-300">
+        <div className="relative z-10 text-center max-w-4xl px-4">
+          <h1 className="text-4xl md:text-6xl font-extrabold leading-tight mb-4 text-amber-300 animate-fade-in">
             EatWise: Smart Kitchen, Zero Waste.
           </h1>
-          <p className="text-xl md:text-2xl mb-8 text-amber-100">
+          <p className="text-lg md:text-2xl mb-8 text-amber-100">
             Effortless pantry management, expiration tracking, and meal planning
             to reduce food waste and save money.
           </p>

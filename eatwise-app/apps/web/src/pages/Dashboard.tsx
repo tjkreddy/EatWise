@@ -19,19 +19,11 @@ const API_BASE_URL =
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [showAddForm, setShowAddForm] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
   const [household, setHousehold] = useState<Household | null>(null);
-  const [householdLoading, setHouseholdLoading] = useState(true);
-  const [householdError, setHouseholdError] = useState<string | null>(null);
   const [members, setMembers] = useState<HouseholdMember[]>([]);
-  const [currentUserRole, setCurrentUserRole] = useState<
-    "owner" | "member" | null
-  >(null);
-  const [leaveLoading, setLeaveLoading] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const alerts = useMemo<AlertItem[]>(() => {
     const today = new Date();
@@ -218,19 +210,6 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  const categories = [
-    "all",
-    ...Array.from(
-      new Set(pantryItems.map((item) => item.category || "Uncategorized")),
-    ),
-  ];
-  const filteredItems =
-    selectedCategory === "all"
-      ? pantryItems
-      : pantryItems.filter(
-          (item) => (item.category || "Uncategorized") === selectedCategory,
-        );
-
   const handleDelete = async (id: number) => {
     try {
       const token = authAPI.getToken();
@@ -383,264 +362,215 @@ const Dashboard: React.FC = () => {
     return emojiMap[category || "Uncategorized"] || "📦";
   };
 
+  const wasteScore = Math.min(100, 90 - stats.expiredItems * 5);
+  const estimatedSavings = (pantryItems.length * 2.5).toFixed(2);
+
   return (
-    <div className="min-h-screen bg-white">
-      <div className="bg-white border-b border-gray-200">
-        <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-6">
-              <div className="flex-shrink-0">
-                <span className="text-2xl font-bold text-amber-600">
-                  EatWise
-                </span>
-              </div>
-              {household && (
-                <div className="text-gray-700">
-                  <span className="font-semibold">{household.name}</span>
-                </div>
-              )}
+    <div className="min-h-screen bg-gray-50">
+      {/* Sidebar */}
+      <aside className="fixed left-0 top-0 w-64 h-screen bg-white border-r border-gray-200 p-6">
+        <div className="flex items-center gap-2 mb-8">
+          <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-teal-600 rounded-lg flex items-center justify-center text-white font-bold">
+            E
+          </div>
+          <div>
+            <div className="font-bold text-lg text-gray-900">EatWise</div>
+            <div className="text-xs text-gray-500">Organic Curator</div>
+          </div>
+        </div>
+        
+        <nav className="space-y-2">
+          <button className="w-full text-left px-4 py-3 rounded-lg bg-green-50 text-green-700 font-medium flex items-center gap-3">
+            <span>📊</span> Dashboard
+          </button>
+          <button className="w-full text-left px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 font-medium flex items-center gap-3">
+            <span>📝</span> Pantry List
+          </button>
+          <button className="w-full text-left px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 font-medium flex items-center gap-3">
+            <span>🛒</span> Grocery List
+          </button>
+        </nav>
+      </aside>
+
+      <div className="ml-64">
+        {/* Header */}
+        <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+          <div className="px-8 py-4 flex items-center justify-between">
+            <div className="flex-1 max-w-md">
+              <input
+                type="text"
+                placeholder="Search your pantry..."
+                className="w-full px-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
             </div>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate("/shopping-list")}
-                className="text-gray-700 hover:text-amber-600 text-sm font-medium transition"
-              >
-                Shopping List
+            
+            <div className="flex items-center gap-6">
+              <button className="relative p-2 text-gray-600 hover:text-gray-900">
+                <span className="text-xl">🔔</span>
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
-              <span className="text-sm text-gray-700">{user?.email}</span>
+              
+              <div className="flex items-center gap-3">
+                <div className="text-right text-sm">
+                  <div className="font-semibold text-gray-900">{user?.email?.split("@")[0] || "User"}</div>
+                  <div className="text-xs text-gray-500">Pantry Master</div>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center text-white font-bold text-sm">
+                  {user?.email?.[0]?.toUpperCase() || "U"}
+                </div>
+              </div>
+              
               <button
                 onClick={handleLogout}
-                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded font-medium transition-colors"
+                className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg font-medium transition"
               >
                 Logout
               </button>
             </div>
           </div>
-        </nav>
-      </div>
-
-      <div className="py-10">
-        <header className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-4xl font-extrabold text-gray-900">
-              Welcome to Your Dashboard
-            </h1>
-            <p className="mt-2 text-lg text-gray-600">
-              Manage your pantry, track expirations, and collaborate with your
-              household.
-            </p>
-          </div>
         </header>
 
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-gray-50 rounded p-6">
-              <p className="text-gray-600 text-sm font-medium">Total Items</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">
-                {stats.totalItems}
-              </p>
+        <main className="p-8">
+          {/* Greeting */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900">Good morning, {user?.email?.split("@")[0] || "User"}</h1>
+            <p className="text-gray-600 mt-1">Your pantry is {wasteScore}% fresh today. Let's minimize some waste.</p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            {/* Total Items Card */}
+            <div className="bg-white rounded-lg p-6 border border-gray-200">
+              <p className="text-sm text-gray-600">TOTAL ITEMS</p>
+              <p className="text-4xl font-bold text-gray-900 mt-2">{stats.totalItems}</p>
             </div>
-            <div className="bg-gray-50 rounded p-6">
-              <p className="text-gray-600 text-sm font-medium">Expiring Soon</p>
-              <p className="text-3xl font-bold text-orange-600 mt-2">
-                {stats.expiringInWeek}
-              </p>
-            </div>
-            <div className="bg-gray-50 rounded p-6">
-              <p className="text-gray-600 text-sm font-medium">Expired Items</p>
-              <p className="text-3xl font-bold text-red-600 mt-2">
-                {stats.expiredItems}
-              </p>
-            </div>
-            <div className="bg-gray-50 rounded p-6">
-              <p className="text-gray-600 text-sm font-semibold uppercase">
-                Members
-              </p>
-              <p className="text-4xl font-bold text-blue-600 mt-2">
-                {stats.householdMembers}
-              </p>
+
+            {/* Members Card */}
+            <div className="bg-white rounded-lg p-6 border border-gray-200">
+              <p className="text-sm text-gray-600">HOUSEHOLD</p>
+              <p className="text-lg font-bold text-gray-900 mt-2">{household?.name || "Personal"}</p>
+              <p className="text-sm text-gray-600 mt-2">{stats.householdMembers} {stats.householdMembers === 1 ? "member" : "members"}</p>
             </div>
           </div>
 
+          {/* Main Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2">
-              <div className="bg-white rounded p-6 border border-gray-300">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-gray-800">
-                    Pantry Inventory
-                  </h2>
-                  <button
-                    onClick={() => setShowAddForm(!showAddForm)}
-                    className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded font-medium transition-colors"
-                  >
-                    + Add Item
-                  </button>
+            {/* Pantry Overview + Inventory */}
+            <div className="lg:col-span-2 space-y-8">
+              {/* Pantry Overview by Category */}
+              <div className="bg-white rounded-lg p-6 border border-gray-200">
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">Pantry Overview</h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {[
+                    { name: "Grains", icon: "🌾", count: pantryItems.filter(i => i.category === "Grains").length },
+                    { name: "Dairy", icon: "🥛", count: pantryItems.filter(i => i.category === "Dairy").length },
+                    { name: "Vegetables", icon: "🥬", count: pantryItems.filter(i => i.category === "Vegetables").length },
+                    { name: "Fruits", icon: "🍎", count: pantryItems.filter(i => i.category === "Fruits").length },
+                    { name: "Spices", icon: "🌶️", count: pantryItems.filter(i => i.category === "Condiments").length },
+                    { name: "Meat", icon: "🍗", count: pantryItems.filter(i => i.category === "Meat").length },
+                  ].map((cat) => (
+                    <div
+                      key={cat.name}
+                      className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 text-center hover:shadow-md transition cursor-pointer"
+                    >
+                      <div className="text-4xl mb-2">{cat.icon}</div>
+                      <div className="font-semibold text-gray-900 text-sm">{cat.name}</div>
+                      <div className="text-2xl font-bold text-gray-700 mt-1">{cat.count}</div>
+                      <div className="text-xs text-gray-600">Items</div>
+                    </div>
+                  ))}
                 </div>
+              </div>
 
-                {showAddForm && (
-                  <form
-                    onSubmit={handleAddItem}
-                    className="mb-6 p-6 bg-white rounded border-2 border-amber-200"
-                  >
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                      Add New Item
-                    </h3>
-                    <div className="grid grid-cols-2 gap-4 mb-4">
+              {/* Add Item Button */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowAddForm(!showAddForm)}
+                  className="bg-gradient-to-r from-green-500 to-teal-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition flex items-center gap-2"
+                >
+                  <span className="text-xl">+</span> Add New Item
+                </button>
+              </div>
+
+              {/* Add Item Form */}
+              {showAddForm && (
+                <div className="bg-white rounded-lg p-6 border-2 border-green-200">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">Add New Item</h3>
+                  <form onSubmit={handleAddItem} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <div className="col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Item Name *
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Item Name *</label>
                         <input
                           name="name"
                           placeholder="e.g., Milk, Tomatoes"
-                          className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                           required
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Quantity *
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
                         <input
                           name="quantity"
                           type="number"
                           placeholder="Amount"
-                          className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                           required
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Unit *
-                        </label>
-                        <select
-                          name="unit"
-                          className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                        >
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Unit *</label>
+                        <select name="unit" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
                           <option>pieces</option>
                           <option>grams</option>
-                          <option>kilograms</option>
+                          <option>kg</option>
                           <option>liters</option>
                           <option>cups</option>
                         </select>
                       </div>
                       <div className="col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Category
-                        </label>
-                        <select
-                          name="category"
-                          className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                        >
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                        <select name="category" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
                           <option value="Uncategorized">Uncategorized</option>
                           <option>Dairy</option>
                           <option>Vegetables</option>
-                          <option>Bakery</option>
                           <option>Meat</option>
-                          <option>Beverages</option>
                           <option>Fruits</option>
-                          <option>Pantry</option>
-                          <option>Frozen</option>
+                          <option>Grains</option>
+                          <option>Condiments</option>
                         </select>
                       </div>
                       <div className="col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Expiration Date
-                        </label>
-                        <input
-                          name="expirationDate"
-                          type="date"
-                          className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Notes
-                        </label>
-                        <textarea
-                          name="notes"
-                          placeholder="Optional notes"
-                          className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
-                          rows={2}
-                        ></textarea>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Expiration Date</label>
+                        <input name="expirationDate" type="date" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
                       </div>
                     </div>
                     <div className="flex gap-3">
-                      <button
-                        type="submit"
-                        className="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-2.5 rounded font-semibold transition"
-                      >
-                        Add Item
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowAddForm(false)}
-                        className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2.5 rounded font-semibold transition"
-                      >
-                        Cancel
-                      </button>
+                      <button type="submit" className="flex-1 bg-green-500 text-white py-2 rounded-lg font-semibold hover:bg-green-600">Add Item</button>
+                      <button type="button" onClick={() => setShowAddForm(false)} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg font-semibold hover:bg-gray-300">Cancel</button>
                     </div>
                   </form>
-                )}
+                </div>
+              )}
 
-                <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-                  {categories.map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => setSelectedCategory(cat)}
-                      className={`px-4 py-1 rounded text-sm font-medium transition ${
-                        selectedCategory === cat
-                          ? "bg-amber-600 text-white"
-                          : "bg-gray-300 text-gray-800 hover:bg-gray-400"
-                      }`}
-                    >
-                      {cat === "all" ? "All Items" : cat}
-                    </button>
-                  ))}
+              {/* Recent Items */}
+              <div className="bg-white rounded-lg p-6 border border-gray-200">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold text-gray-900">Recent Items</h2>
+                  <button className="text-green-600 font-semibold text-sm hover:text-green-700">View All</button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {filteredItems.map((item) => {
+                <div className="space-y-3">
+                  {pantryItems.slice(0, 5).map((item) => {
                     const status = getExpiryStatus(item.expirationDate);
                     return (
-                      <div
-                        key={item.id}
-                        className={`p-4 rounded ${status.color}`}
-                      >
-                        <div className="flex justify-between items-start mb-2">
+                      <div key={item.id} className={`flex items-center justify-between p-4 rounded-lg ${status.color} border border-gray-200`}>
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{getCategoryEmoji(item.category)}</span>
                           <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-2xl">
-                                {getCategoryEmoji(item.category)}
-                              </span>
-                              <h3 className="font-bold text-lg text-gray-800">
-                                {item.name}
-                              </h3>
-                            </div>
-                            <p className="text-sm text-gray-600">
-                              {item.quantity} {item.unit}
-                            </p>
+                            <div className="font-semibold text-gray-900">{item.name}</div>
+                            <div className="text-sm text-gray-600">{item.quantity} {item.unit}</div>
                           </div>
-                          <button
-                            onClick={() => handleDelete(item.id)}
-                            className="text-red-500 hover:text-red-700 font-bold"
-                          >
-                            ✕
-                          </button>
                         </div>
-                        {item.expirationDate && (
-                          <p
-                            className={`text-sm font-semibold mb-2 ${status.textColor}`}
-                          >
-                            Expires:{" "}
-                            {new Date(item.expirationDate).toLocaleDateString()}
-                          </p>
-                        )}
-                        {item.notes && (
-                          <p className="text-sm text-gray-600 italic">
-                            {item.notes}
-                          </p>
-                        )}
+                        <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-red-700 text-xl">✕</button>
                       </div>
                     );
                   })}
@@ -648,140 +578,56 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="lg:col-span-1 space-y-6">
-              <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded p-6 border border-amber-200">
-                <h3 className="text-lg font-bold text-gray-800 mb-3">
-                  Invite to Household
-                </h3>
-                {!householdLoading && household ? (
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm text-gray-600 font-medium">
-                        Household Name
-                      </p>
-                      <p className="text-lg font-semibold text-gray-900 mt-1">
-                        {household.name}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 font-medium mb-2">
-                        Invite Code
-                      </p>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={household.invite_code}
-                          readOnly
-                          className="flex-1 px-3 py-2 bg-white border border-amber-300 rounded font-mono text-sm font-bold text-center text-amber-900"
-                        />
-                        <button
-                          onClick={async () => {
-                            try {
-                              await navigator.clipboard.writeText(
-                                household.invite_code,
-                              );
-                              alert("Invite code copied!");
-                            } catch {
-                              alert("Failed to copy invite code");
-                            }
-                          }}
-                          className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded font-medium transition-colors text-sm"
+            {/* Right Sidebar */}
+            <div className="space-y-8">
+              {/* Smart Expiry Alerts */}
+              <div className="bg-white rounded-lg p-6 border border-gray-200">
+                <h2 className="text-xl font-bold text-gray-900 mb-4">Smart Expiry Alerts</h2>
+                <div className="space-y-3">
+                  {alerts.filter(a => a.severity !== "info").slice(0, 4).map((alert) => (
+                    <div
+                      key={alert.id}
+                      className={`p-4 rounded-lg border-l-4 ${
+                        alert.severity === "critical"
+                          ? "bg-red-50 border-red-400 border"
+                          : alert.severity === "warning"
+                          ? "bg-yellow-50 border-yellow-400 border"
+                          : "bg-blue-50 border-blue-400 border"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="font-semibold text-gray-900">{alert.itemName}</div>
+                          <div className="text-xs text-gray-600 mt-1">
+                            {alert.daysUntilExpiry <= 0
+                              ? "Expired"
+                              : `${alert.daysUntilExpiry} days left`}
+                          </div>
+                        </div>
+                        <span
+                          className={`text-xs font-bold px-2 py-1 rounded ${
+                            alert.severity === "critical"
+                              ? "bg-red-600 text-white"
+                              : alert.severity === "warning"
+                              ? "bg-yellow-600 text-white"
+                              : "bg-blue-600 text-white"
+                          }`}
                         >
-                          Copy
-                        </button>
+                          {alert.severity === "critical" ? "EXPIRES TODAY" : alert.severity === "warning" ? "2 DAYS LEFT" : "FRESH"}
+                        </span>
                       </div>
                     </div>
-                    <p className="text-xs text-gray-600 italic">
-                      Share this code with family members so they can join your
-                      household.
-                    </p>
-                    {currentUserRole === "owner" ? (
-                      <button
-                        onClick={async () => {
-                          if (
-                            !window.confirm(
-                              `Delete household \"${household.name}\"? This will remove all household data for every member.`,
-                            )
-                          ) {
-                            return;
-                          }
-                          setDeleteLoading(true);
-                          try {
-                            await householdAPI.deleteHousehold();
-                            navigate("/household/create");
-                          } catch (err) {
-                            alert(
-                              err instanceof Error
-                                ? err.message
-                                : "Failed to delete household",
-                            );
-                          } finally {
-                            setDeleteLoading(false);
-                          }
-                        }}
-                        disabled={deleteLoading}
-                        className="w-full mt-4 px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {deleteLoading ? "Deleting..." : "Delete Household"}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={async () => {
-                          if (
-                            !window.confirm(
-                              "Are you sure you want to leave this household?",
-                            )
-                          ) {
-                            return;
-                          }
-                          setLeaveLoading(true);
-                          try {
-                            await householdAPI.leaveHousehold();
-                            navigate("/household/create");
-                          } catch (err) {
-                            alert(
-                              err instanceof Error
-                                ? err.message
-                                : "Failed to leave household",
-                            );
-                          } finally {
-                            setLeaveLoading(false);
-                          }
-                        }}
-                        disabled={leaveLoading}
-                        className="w-full mt-4 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {leaveLoading ? "Leaving..." : "Leave Household"}
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-gray-600 text-sm">
-                    Loading household info...
-                  </p>
-                )}
+                  ))}
+                  {alerts.filter(a => a.severity !== "info").length === 0 && (
+                    <p className="text-gray-500 text-sm text-center py-4">All items are still fresh!</p>
+                  )}
+                </div>
               </div>
 
-              <div className="bg-white rounded p-6 border border-gray-300">
-                <h3 className="text-xl font-bold text-gray-800 mb-4">
-                  Household Members
-                </h3>
-                {householdLoading && (
-                  <div className="text-center py-4">
-                    <p className="text-gray-600">Loading members...</p>
-                  </div>
-                )}
-                {householdError && (
-                  <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-                    {householdError}
-                  </div>
-                )}
-                {members.length === 0 && !householdLoading && (
-                  <div className="text-center py-4">
-                    <p className="text-gray-600 text-sm">No members yet</p>
-                  </div>
-                )}
-                <div className="space-y-4">
+              {/* Household Members */}
+              <div className="bg-white rounded-lg p-6 border border-gray-200">
+                <h2 className="text-lg font-bold text-gray-900 mb-4">Household Members</h2>
+                <div className="space-y-3">
                   {members.map((member) => (
                     <div key={member.id} className="flex items-center gap-3">
                       <div
@@ -793,16 +639,12 @@ const Dashboard: React.FC = () => {
                           .map((n) => n[0])
                           .join("")}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm text-gray-800">
-                          {member.name}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate">
-                          {member.email}
-                        </p>
+                      <div className="flex-1">
+                        <div className="font-semibold text-sm text-gray-900">{member.name}</div>
+                        <div className="text-xs text-gray-500">{member.email}</div>
                       </div>
                       {(member.role === "admin" || member.role === "owner") && (
-                        <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded font-semibold">
+                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-semibold">
                           {member.role === "owner" ? "Owner" : "Admin"}
                         </span>
                       )}
@@ -810,6 +652,34 @@ const Dashboard: React.FC = () => {
                   ))}
                 </div>
               </div>
+
+              {/* Invite Code */}
+              {household && (
+                <div className="bg-gradient-to-br from-green-50 to-teal-50 rounded-lg p-6 border border-green-200">
+                  <h3 className="font-bold text-gray-900 mb-3">Share Invite Code</h3>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={household.invite_code}
+                      readOnly
+                      className="flex-1 px-3 py-2 bg-white border border-green-300 rounded-lg font-mono text-sm text-green-900"
+                    />
+                    <button
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(household.invite_code);
+                          alert("Code copied!");
+                        } catch {
+                          alert("Failed to copy");
+                        }
+                      }}
+                      className="px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm font-semibold"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </main>
