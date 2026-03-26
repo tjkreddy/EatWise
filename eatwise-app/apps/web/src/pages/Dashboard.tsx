@@ -1,16 +1,20 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { authAPI } from "../lib/authAPI";
-import { householdAPI } from "../lib/householdAPI";
+import {
+  householdAPI,
+  type Household,
+  type HouseholdMember as APIHouseholdMember,
+} from "../lib/householdAPI";
 import type {
   PantryItem,
   AlertItem,
   DashboardStats,
   HouseholdMember,
-  Household,
 } from "../types";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -23,6 +27,11 @@ const Dashboard: React.FC = () => {
   const [householdLoading, setHouseholdLoading] = useState(true);
   const [householdError, setHouseholdError] = useState<string | null>(null);
   const [members, setMembers] = useState<HouseholdMember[]>([]);
+  const [currentUserRole, setCurrentUserRole] = useState<
+    "owner" | "member" | null
+  >(null);
+  const [leaveLoading, setLeaveLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const alerts = useMemo<AlertItem[]>(() => {
     const today = new Date();
@@ -82,14 +91,24 @@ const Dashboard: React.FC = () => {
         const response = await householdAPI.getMyHousehold();
         if (response.household) {
           setHousehold(response.household);
-          // Set members from household
-          const householdMembers: HouseholdMember[] = (response.household.members || []).map((member: any) => ({
-            id: member.id || member.user_id || 0,
-            name: member.name || member.full_name || member.email.split("@")[0],
+          const myMembership = (response.members || []).find(
+            (member) =>
+              member.user_id === user.id || member.email === user.email,
+          );
+          setCurrentUserRole(
+            myMembership?.role === "owner" ? "owner" : "member",
+          );
+
+          // Set members from response
+          const householdMembers: HouseholdMember[] = (
+            response.members || []
+          ).map((member: APIHouseholdMember) => ({
+            id: member.user_id,
+            name: member.full_name || member.email.split("@")[0],
             email: member.email,
-            role: member.role || "member",
-            joinedDate: member.joined_date || member.joinedDate,
-            avatarColor: member.avatarColor || generateAvatarColor(member.email),
+            role: member.role === "owner" ? "owner" : "member",
+            joinedDate: new Date().toISOString().split("T")[0],
+            avatarColor: generateAvatarColor(member.email),
           }));
           setMembers(householdMembers);
         } else {
@@ -99,7 +118,7 @@ const Dashboard: React.FC = () => {
               id: user.id,
               name: user.full_name || user.email.split("@")[0],
               email: user.email,
-              role: "admin",
+              role: "owner",
               joinedDate: new Date().toISOString().split("T")[0],
               avatarColor: generateAvatarColor(user.email),
             },
@@ -107,14 +126,16 @@ const Dashboard: React.FC = () => {
         }
       } catch (error) {
         console.error("Error fetching household:", error);
-        setHouseholdError(error instanceof Error ? error.message : "Failed to load household");
+        setHouseholdError(
+          error instanceof Error ? error.message : "Failed to load household",
+        );
         // Fallback: set current user as member on error
         setMembers([
           {
             id: user.id,
             name: user.full_name || user.email.split("@")[0],
             email: user.email,
-            role: "admin",
+            role: "owner",
             joinedDate: new Date().toISOString().split("T")[0],
             avatarColor: generateAvatarColor(user.email),
           },
@@ -213,15 +234,12 @@ const Dashboard: React.FC = () => {
   const handleDelete = async (id: number) => {
     try {
       const token = authAPI.getToken();
-      const response = await fetch(
-        `${API_BASE_URL}/api/pantry/items/${id}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      const response = await fetch(`${API_BASE_URL}/api/pantry/items/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-      );
+      });
 
       if (!response.ok) {
         throw new Error("Failed to delete item");
@@ -630,7 +648,120 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 space-y-6">
+              <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded p-6 border border-amber-200">
+                <h3 className="text-lg font-bold text-gray-800 mb-3">
+                  Invite to Household
+                </h3>
+                {!householdLoading && household ? (
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm text-gray-600 font-medium">
+                        Household Name
+                      </p>
+                      <p className="text-lg font-semibold text-gray-900 mt-1">
+                        {household.name}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 font-medium mb-2">
+                        Invite Code
+                      </p>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={household.invite_code}
+                          readOnly
+                          className="flex-1 px-3 py-2 bg-white border border-amber-300 rounded font-mono text-sm font-bold text-center text-amber-900"
+                        />
+                        <button
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(
+                                household.invite_code,
+                              );
+                              alert("Invite code copied!");
+                            } catch {
+                              alert("Failed to copy invite code");
+                            }
+                          }}
+                          className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded font-medium transition-colors text-sm"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-600 italic">
+                      Share this code with family members so they can join your
+                      household.
+                    </p>
+                    {currentUserRole === "owner" ? (
+                      <button
+                        onClick={async () => {
+                          if (
+                            !window.confirm(
+                              `Delete household \"${household.name}\"? This will remove all household data for every member.`,
+                            )
+                          ) {
+                            return;
+                          }
+                          setDeleteLoading(true);
+                          try {
+                            await householdAPI.deleteHousehold();
+                            navigate("/household/create");
+                          } catch (err) {
+                            alert(
+                              err instanceof Error
+                                ? err.message
+                                : "Failed to delete household",
+                            );
+                          } finally {
+                            setDeleteLoading(false);
+                          }
+                        }}
+                        disabled={deleteLoading}
+                        className="w-full mt-4 px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {deleteLoading ? "Deleting..." : "Delete Household"}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          if (
+                            !window.confirm(
+                              "Are you sure you want to leave this household?",
+                            )
+                          ) {
+                            return;
+                          }
+                          setLeaveLoading(true);
+                          try {
+                            await householdAPI.leaveHousehold();
+                            navigate("/household/create");
+                          } catch (err) {
+                            alert(
+                              err instanceof Error
+                                ? err.message
+                                : "Failed to leave household",
+                            );
+                          } finally {
+                            setLeaveLoading(false);
+                          }
+                        }}
+                        disabled={leaveLoading}
+                        className="w-full mt-4 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {leaveLoading ? "Leaving..." : "Leave Household"}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-gray-600 text-sm">
+                    Loading household info...
+                  </p>
+                )}
+              </div>
+
               <div className="bg-white rounded p-6 border border-gray-300">
                 <h3 className="text-xl font-bold text-gray-800 mb-4">
                   Household Members
@@ -670,9 +801,9 @@ const Dashboard: React.FC = () => {
                           {member.email}
                         </p>
                       </div>
-                      {member.role === "admin" && (
+                      {(member.role === "admin" || member.role === "owner") && (
                         <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded font-semibold">
-                          Admin
+                          {member.role === "owner" ? "Owner" : "Admin"}
                         </span>
                       )}
                     </div>

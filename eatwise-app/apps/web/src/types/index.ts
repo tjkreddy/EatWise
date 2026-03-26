@@ -10,10 +10,10 @@ export interface PantryItem {
 }
 
 export interface HouseholdMember {
-  id: number;
+  id: number | string;
   name: string;
   email: string;
-  role: 'admin' | 'member';
+  role: "owner" | "admin" | "member";
   joinedDate?: string;
   avatarColor?: string;
 }
@@ -32,7 +32,7 @@ export interface AlertItem {
   itemName: string;
   expirationDate: string;
   daysUntilExpiry: number;
-  severity: 'critical' | 'warning' | 'info';
+  severity: "critical" | "warning" | "info";
 }
 
 export interface DashboardStats {

@@ -43,7 +43,23 @@ CREATE TABLE IF NOT EXISTS pantry_items (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Shopping list table
+CREATE TABLE IF NOT EXISTS shopping_list (
+    id SERIAL PRIMARY KEY,
+    household_id UUID REFERENCES households(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    quantity INTEGER DEFAULT 1,
+    unit TEXT,
+    category TEXT,
+    purchased BOOLEAN DEFAULT FALSE,
+    purchased_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_household_members_user_id ON household_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_household_members_household_id ON household_members(household_id);
 CREATE INDEX IF NOT EXISTS idx_pantry_items_household_id ON pantry_items(household_id);
+CREATE INDEX IF NOT EXISTS idx_shopping_list_household_id ON shopping_list(household_id);
 

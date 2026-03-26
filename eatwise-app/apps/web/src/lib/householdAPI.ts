@@ -4,6 +4,15 @@ export interface Household {
   id: string;
   name: string;
   invite_code: string;
+  created_by?: string;
+  created_at?: string;
+}
+
+export interface HouseholdMember {
+  user_id: string;
+  email: string;
+  role: string;
+  full_name?: string;
 }
 
 export interface CreateHouseholdResponse {
@@ -17,9 +26,11 @@ export interface JoinHouseholdResponse {
 
 export interface GetMyHouseholdResponse {
   household?: Household;
+  members?: HouseholdMember[];
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 const makeAuthHeaders = () => ({
   "Content-Type": "application/json",
@@ -35,7 +46,7 @@ export const householdAPI = {
     });
 
     if (!response.ok) {
-      throw new Error(await response.text() || "Failed to create household");
+      throw new Error((await response.text()) || "Failed to create household");
     }
 
     return response.json();
@@ -49,7 +60,7 @@ export const householdAPI = {
     });
 
     if (!response.ok) {
-      throw new Error(await response.text() || "Failed to join household");
+      throw new Error((await response.text()) || "Failed to join household");
     }
 
     return response.json();
@@ -66,9 +77,31 @@ export const householdAPI = {
     }
 
     if (!response.ok) {
-      throw new Error(await response.text() || "Failed to get household");
+      throw new Error((await response.text()) || "Failed to get household");
     }
 
     return response.json();
+  },
+
+  leaveHousehold: async (): Promise<void> => {
+    const response = await fetch(`${API_BASE_URL}/api/households/leave`, {
+      method: "POST",
+      headers: makeAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error((await response.text()) || "Failed to leave household");
+    }
+  },
+
+  deleteHousehold: async (): Promise<void> => {
+    const response = await fetch(`${API_BASE_URL}/api/households`, {
+      method: "DELETE",
+      headers: makeAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error((await response.text()) || "Failed to delete household");
+    }
   },
 };

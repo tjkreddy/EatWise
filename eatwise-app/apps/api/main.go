@@ -59,6 +59,19 @@ type PantryItem struct {
 	UpdatedAt      time.Time `json:"updated_at,omitempty"`
 }
 
+type ShoppingItem struct {
+	ID          int       `json:"id"`
+	HouseholdID string    `json:"household_id"`
+	UserID      string    `json:"user_id"`
+	Name        string    `json:"name"`
+	Quantity    int       `json:"quantity"`
+	Unit        string    `json:"unit,omitempty"`
+	Category    string    `json:"category,omitempty"`
+	Purchased   bool      `json:"purchased"`
+	PurchasedAt *time.Time `json:"purchased_at,omitempty"`
+	CreatedAt   time.Time `json:"created_at,omitempty"`
+}
+
 type Household struct {
 	ID         string    `json:"id"`
 	Name       string    `json:"name"`
@@ -498,6 +511,60 @@ func createHouseholdHandler(w http.ResponseWriter, r *http.Request) {
 		CreatedBy:  userID,
 		CreatedAt:  createdAt,
 	})
+}
+
+// DELETE /api/households
+func deleteMyHouseholdHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+		userID, err := getUserIDFromRequest(r)
+		if err != nil {
+			http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		householdID, err := getUserHouseholdID(userID)
+		if err != nil {
+			http.Error(w, "User not in household", http.StatusNotFound)
+			return
+		}
+
+		err = checkHouseholdOwner(userID, householdID)
+		if err != nil {
+			http.Error(w, "Forbidden: only owner can delete household", http.StatusForbidden)
+			return
+		}
+
+		result, err := db.Exec(`DELETE FROM households WHERE id = $1`, householdID)
+		if err != nil {
+			log.Printf("deleteMyHouseholdHandler delete error: %v", err)
+			http.Error(w, "Failed to delete household", http.StatusInternalServerError)
+			return
+		}
+
+		rowsAffected, err := result.RowsAffected()
+		if err != nil || rowsAffected == 0 {
+			http.Error(w, "Household not found", http.StatusNotFound)
+			return
+		}
+
+		respondJSON(w, http.StatusOK, map[string]string{"message": "household deleted"})
+	}
+
+// POST /api/households or DELETE /api/households
+func householdsRootHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		createHouseholdHandler(w, r)
+		return
+	}
+	if r.Method == http.MethodDelete {
+		deleteMyHouseholdHandler(w, r)
+		return
+	}
+	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 }
 
 // POST /api/households/join
@@ -994,35 +1061,34 @@ func getHouseholdHandler(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, response)
 }
 
-// DELETE /api/households/:id/members/:userId
-func removeMemberHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	userID, err := getUserIDFromRequest(r)
+// DELETE /api/households/:id
+func deleteHouseholdHandler(w http.ResponseWriter, r *http.Request, userID string, householdID string) {
+	err := checkHouseholdOwner(userID, householdID)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		http.Error(w, "Forbidden: "+err.Error(), http.StatusForbidden)
 		return
 	}
 
-	// Parse household ID from URL
-	householdID := strings.TrimPrefix(r.URL.Path, "/api/households/")
-	householdID = strings.Split(householdID, "/")[0]
-	if householdID == "" {
-		http.Error(w, "Invalid household ID", http.StatusBadRequest)
+	result, err := db.Exec(`DELETE FROM households WHERE id = $1`, householdID)
+	if err != nil {
+		log.Printf("deleteHouseholdHandler delete error: %v", err)
+		http.Error(w, "Failed to delete household", http.StatusInternalServerError)
 		return
 	}
 
-	// Parse user ID to remove
-	userIDToRemove := strings.TrimPrefix(r.URL.Path, "/api/households/"+householdID+"/members/")
-	if userIDToRemove == "" {
-		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+	rowsAffected, err := result.RowsAffected()
+	if err != nil || rowsAffected == 0 {
+		http.Error(w, "Household not found", http.StatusNotFound)
 		return
 	}
 
+	respondJSON(w, http.StatusOK, map[string]string{"message": "household deleted"})
+}
+
+// DELETE /api/households/:id/members/:userId
+func removeMemberHandler(w http.ResponseWriter, r *http.Request, userID string, householdID string, userIDToRemove string) {
 	// Check if requester is owner
-	err = checkHouseholdOwner(userID, householdID)
+	err := checkHouseholdOwner(userID, householdID)
 	if err != nil {
 		http.Error(w, "Forbidden: "+err.Error(), http.StatusForbidden)
 		return
@@ -1052,6 +1118,321 @@ func removeMemberHandler(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]string{"message": "member removed"})
 }
 
+// DELETE /api/households/:id or /api/households/:id/members/:userId
+func householdSubrouteHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, err := getUserIDFromRequest(r)
+	if err != nil {
+		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	path := strings.TrimPrefix(r.URL.Path, "/api/households/")
+	path = strings.Trim(path, "/")
+	if path == "" {
+		http.Error(w, "Invalid household path", http.StatusBadRequest)
+		return
+	}
+
+	parts := strings.Split(path, "/")
+	householdID := parts[0]
+	if householdID == "" {
+		http.Error(w, "Invalid household ID", http.StatusBadRequest)
+		return
+	}
+
+	if len(parts) == 1 {
+		deleteHouseholdHandler(w, r, userID, householdID)
+		return
+	}
+
+	if len(parts) != 3 || parts[1] != "members" || parts[2] == "" {
+		http.Error(w, "Invalid household route", http.StatusBadRequest)
+		return
+	}
+
+	removeMemberHandler(w, r, userID, householdID, parts[2])
+}
+
+// POST /api/households/leave
+func leaveHouseholdHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, err := getUserIDFromRequest(r)
+	if err != nil {
+		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	householdID, err := getUserHouseholdID(userID)
+	if err != nil {
+		http.Error(w, "User not in household: "+err.Error(), http.StatusNotFound)
+		return
+	}
+
+	// Check if user is owner
+	var role string
+	err = db.QueryRow(`SELECT role FROM household_members WHERE household_id = $1 AND user_id = $2`, householdID, userID).Scan(&role)
+	if err != nil {
+		http.Error(w, "Failed to verify membership", http.StatusInternalServerError)
+		return
+	}
+
+	if role == "owner" {
+		http.Error(w, "Owner cannot leave household. Delete the household or transfer ownership first.", http.StatusForbidden)
+		return
+	}
+
+	// Remove user from household
+	_, err = db.Exec(`DELETE FROM household_members WHERE household_id = $1 AND user_id = $2`, householdID, userID)
+	if err != nil {
+		log.Printf("leaveHouseholdHandler delete error: %v", err)
+		http.Error(w, "Failed to leave household", http.StatusInternalServerError)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"message": "left household successfully"})
+}
+
+// Shopping List Handlers
+
+// GET /api/shopping-list
+func getShoppingListHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, err := getUserIDFromRequest(r)
+	if err != nil {
+		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	householdID, err := getUserHouseholdID(userID)
+	if err != nil {
+		http.Error(w, "User not in household: "+err.Error(), http.StatusNotFound)
+		return
+	}
+
+	rows, err := db.Query(`
+		SELECT id, household_id, user_id, name, quantity, unit, category, purchased, purchased_at, created_at
+		FROM shopping_list
+		WHERE household_id = $1
+		ORDER BY created_at DESC
+	`, householdID)
+	if err != nil {
+		log.Printf("getShoppingListHandler query error: %v", err)
+		http.Error(w, "Failed to fetch shopping items", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	items := []ShoppingItem{}
+	for rows.Next() {
+		var item ShoppingItem
+		err := rows.Scan(&item.ID, &item.HouseholdID, &item.UserID, &item.Name, &item.Quantity, 
+			&item.Unit, &item.Category, &item.Purchased, &item.PurchasedAt, &item.CreatedAt)
+		if err != nil {
+			log.Printf("getShoppingListHandler scan error: %v", err)
+			continue
+		}
+		items = append(items, item)
+	}
+
+	respondJSON(w, http.StatusOK, items)
+}
+
+// POST /api/shopping-list
+func addShoppingItemHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, err := getUserIDFromRequest(r)
+	if err != nil {
+		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	householdID, err := getUserHouseholdID(userID)
+	if err != nil {
+		http.Error(w, "User not in household: "+err.Error(), http.StatusNotFound)
+		return
+	}
+
+	var req map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	name, ok := req["name"].(string)
+	if !ok || name == "" {
+		http.Error(w, "Name is required", http.StatusBadRequest)
+		return
+	}
+
+	quantity := 1
+	if q, ok := req["quantity"].(float64); ok {
+		quantity = int(q)
+	}
+
+	unit, _ := req["unit"].(string)
+	category, _ := req["category"].(string)
+
+	var id int
+	var createdAt time.Time
+	err = db.QueryRow(`
+		INSERT INTO shopping_list (household_id, user_id, name, quantity, unit, category)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, created_at
+	`, householdID, userID, name, quantity, unit, category).Scan(&id, &createdAt)
+	if err != nil {
+		log.Printf("addShoppingItemHandler insert error: %v", err)
+		http.Error(w, "Failed to add shopping item", http.StatusInternalServerError)
+		return
+	}
+
+	item := ShoppingItem{
+		ID:          id,
+		HouseholdID: householdID,
+		UserID:      userID,
+		Name:        name,
+		Quantity:    quantity,
+		Unit:        unit,
+		Category:    category,
+		Purchased:   false,
+		CreatedAt:   createdAt,
+	}
+
+	respondJSON(w, http.StatusCreated, item)
+}
+
+// PUT /api/shopping-list/:id
+func updateShoppingItemHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, err := getUserIDFromRequest(r)
+	if err != nil {
+		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	householdID, err := getUserHouseholdID(userID)
+	if err != nil {
+		http.Error(w, "User not in household: "+err.Error(), http.StatusNotFound)
+		return
+	}
+
+	// Parse item ID from URL
+	itemID, err := strconv.Atoi(strings.TrimPrefix(r.URL.Path, "/api/shopping-list/"))
+	if err != nil {
+		http.Error(w, "Invalid item ID", http.StatusBadRequest)
+		return
+	}
+
+	var req map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Check if item belongs to user's household
+	var existing ShoppingItem
+	err = db.QueryRow(`
+		SELECT id, household_id, user_id, name, quantity, unit, category, purchased, purchased_at, created_at
+		FROM shopping_list WHERE id = $1 AND household_id = $2
+	`, itemID, householdID).Scan(
+		&existing.ID, &existing.HouseholdID, &existing.UserID, &existing.Name, &existing.Quantity,
+		&existing.Unit, &existing.Category, &existing.Purchased, &existing.PurchasedAt, &existing.CreatedAt,
+	)
+	if err == sql.ErrNoRows {
+		http.Error(w, "Item not found", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, "Failed to fetch item", http.StatusInternalServerError)
+		return
+	}
+
+	// Update fields
+	if purchased, ok := req["purchased"].(bool); ok {
+		var purchasedAt *time.Time
+		if purchased {
+			now := time.Now()
+			purchasedAt = &now
+		}
+		_, err := db.Exec(`
+			UPDATE shopping_list
+			SET purchased = $1, purchased_at = $2, updated_at = NOW()
+			WHERE id = $3
+		`, purchased, purchasedAt, itemID)
+		if err != nil {
+			http.Error(w, "Failed to update item", http.StatusInternalServerError)
+			return
+		}
+		existing.Purchased = purchased
+		existing.PurchasedAt = purchasedAt
+	}
+
+	respondJSON(w, http.StatusOK, existing)
+}
+
+// DELETE /api/shopping-list/:id
+func deleteShoppingItemHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, err := getUserIDFromRequest(r)
+	if err != nil {
+		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	householdID, err := getUserHouseholdID(userID)
+	if err != nil {
+		http.Error(w, "User not in household: "+err.Error(), http.StatusNotFound)
+		return
+	}
+
+	// Parse item ID from URL
+	itemID, err := strconv.Atoi(strings.TrimPrefix(r.URL.Path, "/api/shopping-list/"))
+	if err != nil {
+		http.Error(w, "Invalid item ID", http.StatusBadRequest)
+		return
+	}
+
+	result, err := db.Exec(`
+		DELETE FROM shopping_list
+		WHERE id = $1 AND household_id = $2
+	`, itemID, householdID)
+	if err != nil {
+		http.Error(w, "Failed to delete item", http.StatusInternalServerError)
+		return
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil || rowsAffected == 0 {
+		http.Error(w, "Item not found", http.StatusNotFound)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"message": "item deleted"})
+}
+
 func main() {
 	if err := initDB(); err != nil {
 		log.Fatalf("Database connection failed: %v", err)
@@ -1071,10 +1452,11 @@ func main() {
 	http.HandleFunc("/api/auth/login", enableCORS(loginHandler))
 
 	// Household routes
-	http.HandleFunc("/api/households", enableCORS(createHouseholdHandler))
+	http.HandleFunc("/api/households", enableCORS(householdsRootHandler))
 	http.HandleFunc("/api/households/join", enableCORS(joinHouseholdHandler))
+	http.HandleFunc("/api/households/leave", enableCORS(leaveHouseholdHandler))
 	http.HandleFunc("/api/households/me", enableCORS(getHouseholdHandler))
-	http.HandleFunc("/api/households/", enableCORS(removeMemberHandler))
+	http.HandleFunc("/api/households/", enableCORS(householdSubrouteHandler))
 
 	// Pantry routes
 	http.HandleFunc("/api/pantry/items", enableCORS(func(w http.ResponseWriter, r *http.Request) {
@@ -1095,6 +1477,30 @@ func main() {
 		}
 		if r.Method == http.MethodPut {
 			updatePantryHandler(w, r)
+			return
+		}
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}))
+
+	// Shopping List routes
+	http.HandleFunc("/api/shopping-list", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			getShoppingListHandler(w, r)
+			return
+		}
+		if r.Method == http.MethodPost {
+			addShoppingItemHandler(w, r)
+			return
+		}
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}))
+	http.HandleFunc("/api/shopping-list/", enableCORS(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			deleteShoppingItemHandler(w, r)
+			return
+		}
+		if r.Method == http.MethodPut {
+			updateShoppingItemHandler(w, r)
 			return
 		}
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
