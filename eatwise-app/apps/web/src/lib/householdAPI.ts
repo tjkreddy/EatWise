@@ -104,4 +104,21 @@ export const householdAPI = {
       throw new Error((await response.text()) || "Failed to delete household");
     }
   },
+
+  removeMember: async (
+    householdId: string,
+    memberUserId: string,
+  ): Promise<void> => {
+    const response = await fetch(
+      `${API_BASE_URL}/api/households/${householdId}/members/${memberUserId}`,
+      {
+        method: "DELETE",
+        headers: makeAuthHeaders(),
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error((await response.text()) || "Failed to remove member");
+    }
+  },
 };

@@ -237,6 +237,15 @@ const Dashboard: React.FC = () => {
     return colors[Math.abs(hash) % colors.length];
   };
 
+  const getAvatarColorClass = (color?: string): string => {
+    if (color === "#FF6B6B") return "bg-red-400";
+    if (color === "#4ECDC4") return "bg-teal-400";
+    if (color === "#45B7D1") return "bg-sky-400";
+    if (color === "#FFA07A") return "bg-orange-300";
+    if (color === "#98D8C8") return "bg-emerald-300";
+    return "bg-gray-400";
+  };
+
   // Early returns after all hooks
   if (loading) {
     return (
@@ -468,8 +477,7 @@ const Dashboard: React.FC = () => {
                   {members.map((member) => (
                     <div key={member.id} className="flex items-center gap-3">
                       <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
-                        style={{ backgroundColor: member.avatarColor }}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${getAvatarColorClass(member.avatarColor)}`}
                       >
                         {member.name
                           .split(" ")
@@ -505,6 +513,8 @@ const Dashboard: React.FC = () => {
                       type="text"
                       value={household.invite_code}
                       readOnly
+                      title="Household invite code"
+                      placeholder="Invite code"
                       className="flex-1 px-3 py-2 bg-white border border-green-300 rounded-lg font-mono text-sm text-green-900"
                     />
                     <button

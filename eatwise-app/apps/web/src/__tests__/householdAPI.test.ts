@@ -27,7 +27,7 @@ describe("householdAPI", () => {
         Promise.resolve({
           ok: true,
           json: () => Promise.resolve(response),
-        })
+        }),
       ) as any;
 
       const result = await householdAPI.createHousehold("Test Household");
@@ -38,7 +38,7 @@ describe("householdAPI", () => {
         expect.objectContaining({
           method: "POST",
           body: JSON.stringify({ name: "Test Household" }),
-        })
+        }),
       );
     });
 
@@ -47,11 +47,11 @@ describe("householdAPI", () => {
         Promise.resolve({
           ok: false,
           text: () => Promise.resolve("Failed to create household"),
-        })
+        }),
       ) as any;
 
       await expect(householdAPI.createHousehold("Test")).rejects.toThrow(
-        "Failed to create household"
+        "Failed to create household",
       );
     });
   });
@@ -64,7 +64,7 @@ describe("householdAPI", () => {
         Promise.resolve({
           ok: true,
           json: () => Promise.resolve(response),
-        })
+        }),
       ) as any;
 
       const result = await householdAPI.joinHousehold("ABC123");
@@ -75,7 +75,7 @@ describe("householdAPI", () => {
         expect.objectContaining({
           method: "POST",
           body: JSON.stringify({ invite_code: "ABC123" }),
-        })
+        }),
       );
     });
 
@@ -84,11 +84,11 @@ describe("householdAPI", () => {
         Promise.resolve({
           ok: false,
           text: () => Promise.resolve("Invalid invite code"),
-        })
+        }),
       ) as any;
 
       await expect(householdAPI.joinHousehold("INVALID")).rejects.toThrow(
-        "Invalid invite code"
+        "Invalid invite code",
       );
     });
   });
@@ -110,7 +110,7 @@ describe("householdAPI", () => {
         Promise.resolve({
           ok: true,
           json: () => Promise.resolve(response),
-        })
+        }),
       ) as any;
 
       const result = await householdAPI.getMyHousehold();
@@ -120,7 +120,7 @@ describe("householdAPI", () => {
         expect.stringContaining("/api/households/me"),
         expect.objectContaining({
           method: "GET",
-        })
+        }),
       );
     });
 
@@ -129,7 +129,7 @@ describe("householdAPI", () => {
         Promise.resolve({
           status: 404,
           ok: false,
-        })
+        }),
       ) as any;
 
       const result = await householdAPI.getMyHousehold();
@@ -144,7 +144,7 @@ describe("householdAPI", () => {
         Promise.resolve({
           ok: true,
           json: () => Promise.resolve({}),
-        })
+        }),
       ) as any;
 
       await householdAPI.leaveHousehold();
@@ -153,7 +153,7 @@ describe("householdAPI", () => {
         expect.stringContaining("/api/households/leave"),
         expect.objectContaining({
           method: "POST",
-        })
+        }),
       );
     });
 
@@ -162,11 +162,11 @@ describe("householdAPI", () => {
         Promise.resolve({
           ok: false,
           text: () => Promise.resolve("Failed to leave"),
-        })
+        }),
       ) as any;
 
       await expect(householdAPI.leaveHousehold()).rejects.toThrow(
-        "Failed to leave"
+        "Failed to leave",
       );
     });
   });
@@ -176,7 +176,7 @@ describe("householdAPI", () => {
       global.fetch = vi.fn(() =>
         Promise.resolve({
           ok: true,
-        })
+        }),
       ) as any;
 
       await householdAPI.deleteHousehold();
@@ -185,7 +185,7 @@ describe("householdAPI", () => {
         expect.stringContaining("/api/households"),
         expect.objectContaining({
           method: "DELETE",
-        })
+        }),
       );
     });
 
@@ -194,12 +194,46 @@ describe("householdAPI", () => {
         Promise.resolve({
           ok: false,
           text: () => Promise.resolve("Failed to delete"),
-        })
+        }),
       ) as any;
 
       await expect(householdAPI.deleteHousehold()).rejects.toThrow(
-        "Failed to delete"
+        "Failed to delete",
       );
+    });
+  });
+
+  describe("removeMember", () => {
+    it("should remove a member from household", async () => {
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+        }),
+      ) as any;
+
+      await householdAPI.removeMember("household-123", "user-456");
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "/api/households/household-123/members/user-456",
+        ),
+        expect.objectContaining({
+          method: "DELETE",
+        }),
+      );
+    });
+
+    it("should throw an error when remove member fails", async () => {
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          text: () => Promise.resolve("Failed to remove member"),
+        }),
+      ) as any;
+
+      await expect(
+        householdAPI.removeMember("household-123", "user-456"),
+      ).rejects.toThrow("Failed to remove member");
     });
   });
 });

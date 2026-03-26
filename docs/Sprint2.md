@@ -1,8 +1,8 @@
 # Sprint 2 Report
 
-## 1. Detailed Work Completed in Sprint 2
+## 1. Sprint 2 Completed Work
 
-### Backend (Go API)
+### 1.1 Backend (Go API)
 
 1. Implemented authentication endpoints:
 
@@ -13,7 +13,7 @@
 
 - create household
 - join household via invite code
-- get current household details and members
+- get current household and members
 - leave household (member flow)
 - delete household (owner flow)
 - remove household member (owner flow)
@@ -32,98 +32,103 @@
 - update shopping item purchase state
 - delete shopping item
 
-5. Added route dispatch and method guards for API route groups.
-6. Added helper logic for token parsing, invite code generation, and household membership/ownership checks.
+5. Added centralized route dispatch and HTTP method guards.
+6. Added helper logic for JWT parsing, invite code generation, and household role/membership checks.
 
-### Frontend (React + TypeScript)
+### 1.2 Frontend (React + TypeScript)
 
-1. Added and connected feature pages:
+1. Added and connected pages:
 
 - pantry list page
 - shopping list page
 - manage household page
 
-2. Connected left-nav and top-nav routing between dashboard and feature pages.
-3. Added household UX flow:
+2. Wired left-nav/top-nav routing among dashboard and feature pages.
+3. Completed household UX flows:
 
 - create/join household
 - invite code copy
-- leave household for member
-- delete household for owner
+- member leave household
+- owner delete household
 
-4. Updated dashboard layout per requests (header cards and content cleanup).
-5. Fixed dashboard category counting logic by normalizing category values.
-6. Updated pantry add form fields `unit` and `category` to use dropdown selections.
+4. Updated dashboard layout and interactions.
+5. Fixed category counting by normalizing category values.
+6. Converted pantry add form `unit` and `category` fields to dropdown selectors.
 
-### Quality and Validation
+### 1.3 Quality and Validation
 
-1. Added Cypress coverage for key frontend flows.
-2. Added backend unit tests for pure helpers and handler method behavior.
-3. Updated backend DB-backed tests to skip cleanly when DB is unavailable.
-4. Verified backend test suite using `go test ./...` in `eatwise-app/apps/api`.
+1. Added Cypress end-to-end coverage for primary flows.
+2. Added backend unit tests for helpers and handler behavior.
+3. Updated DB-backed backend tests to skip cleanly when DB is unavailable.
+4. Verified backend tests using `go test ./...` in `eatwise-app/apps/api`.
 
-## 2. Frontend Tests
+## 2. Frontend Test Documentation
 
-### Frontend Unit Tests (Vitest)
+### 2.1 Unit Tests (Vitest)
 
 Location: `eatwise-app/apps/web/src/__tests__/`
 
 1. `LandingPage.test.tsx`
 
-- validates landing page render and CTA visibility.
+- verifies landing page render and CTA visibility.
 
 2. `LoginPage.test.tsx`
 
-- validates login form rendering.
-- validates input interaction.
-- validates submit behavior and error handling.
-- validates post-login navigation behavior.
+- verifies login form rendering and interaction.
+- verifies submit behavior and error handling.
+- verifies navigation behavior after login.
 
 3. `Dashboard.test.tsx`
 
-- validates dashboard render and expected content sections.
+- verifies dashboard render and key UI sections.
 
 4. `ShoppingList.test.tsx`
 
-- validates authenticated render path.
-- validates unauthenticated redirect path.
-- validates loading and error states.
-- validates add/list shopping item behaviors.
+- verifies authenticated/unauthenticated flows.
+- verifies loading/error states.
+- verifies add/list behavior.
 
-5. `authAPI.test.ts`
+5. `ManageHouseholdPage.test.tsx`
 
-- validates auth API utility behavior.
+- verifies owner-only visibility for member removal action.
+- verifies remove action calls `householdAPI.removeMember` with the selected member.
 
-6. `householdAPI.test.ts`
+6. `authAPI.test.ts`
 
-- validates household API utility behavior.
+- verifies auth API client behavior.
 
-7. `shoppingListAPI.test.ts`
+7. `householdAPI.test.ts`
 
-- validates shopping list API utility behavior.
+- verifies household API client behavior.
+- includes `removeMember` success and failure scenarios for
+  `DELETE /api/households/{householdId}/members/{userId}`.
 
-### Cypress Tests (Frontend E2E)
+8. `shoppingListAPI.test.ts`
+
+- verifies shopping-list API client behavior.
+
+### 2.2 Cypress End-to-End Tests
 
 Location: `eatwise-app/apps/web/cypress/e2e/`
 
 1. `simple.cy.ts`
 
-- verifies landing page load.
-- verifies login and signup navigation clicks.
-- verifies simple form-fill interaction.
+- landing page load
+- login/signup navigation clicks
+- simple form-fill interaction
 
 2. `eatwise.cy.ts`
 
-- verifies authentication flows.
-- verifies household management flow.
-- verifies shopping list flow.
-- verifies dashboard/navigation/logout flow.
+- authentication flows
+- household management flow
+- shopping list flow
+- dashboard/navigation/logout flow
 
-## 3. Backend Unit Tests
+## 3. Backend Unit Test Documentation
 
 Location: `eatwise-app/apps/api/`
 
-### Pure Unit Tests
+### 3.1 Pure Unit Tests (No DB Dependency)
 
 File: `unit_handlers_test.go`
 
@@ -143,7 +148,7 @@ File: `unit_handlers_test.go`
 14. `TestSignupValidationWithoutDBAccess`
 15. `TestLoginInvalidBodyWithoutDBAccess`
 
-### DB-Backed API Tests
+### 3.2 DB-Backed API Tests
 
 File: `main_test.go`
 
@@ -162,21 +167,28 @@ Note:
 
 ## 4. Backend API Documentation
 
-Implementation source: `eatwise-app/apps/api/main.go`
+### 4.1 API Basics
+
+Source: `eatwise-app/apps/api/main.go`
 
 Base URL (local): `http://localhost:8080`
 
-Protected endpoint auth header:
+Protected endpoint header:
 
 - `Authorization: Bearer <jwt>`
 
-### Authentication APIs
+CORS behavior:
+
+- allows `GET, POST, PUT, DELETE, OPTIONS`
+- allows headers `Content-Type, Authorization`
+
+### 4.2 Authentication Endpoints
 
 1. `POST /api/auth/signup`
 
 - creates user and returns token + user.
 
-Example body:
+Example request:
 
 ```json
 {
@@ -190,7 +202,7 @@ Example body:
 
 - logs in user and returns token + user.
 
-Example body:
+Example request:
 
 ```json
 {
@@ -199,7 +211,7 @@ Example body:
 }
 ```
 
-### Household APIs
+### 4.3 Household Endpoints
 
 1. `POST /api/households`
 
@@ -213,7 +225,7 @@ Example body:
 
 - join household by invite code.
 
-Example body:
+Example request:
 
 ```json
 {
@@ -223,7 +235,7 @@ Example body:
 
 4. `POST /api/households/leave`
 
-- leave household (member only, owner cannot directly leave).
+- leave household (members only; owner cannot directly leave).
 
 5. `GET /api/households/me`
 
@@ -236,8 +248,24 @@ Example body:
 7. `DELETE /api/households/{householdId}/members/{userId}`
 
 - remove member from household (owner only).
+- constraints:
+  - owner cannot remove self via this endpoint.
+  - target user must already be a member of the household.
+- success response:
 
-### Pantry APIs
+```json
+{
+  "message": "member removed"
+}
+```
+
+- common status codes for this endpoint:
+  - `200` member removed
+  - `400` invalid request (for example owner removing self)
+  - `403` requester is not household owner
+  - `404` target user not found in household
+
+### 4.4 Pantry Endpoints
 
 1. `GET /api/pantry/items`
 
@@ -247,7 +275,7 @@ Example body:
 
 - add pantry item.
 
-Example body:
+Example request:
 
 ```json
 {
@@ -268,7 +296,7 @@ Example body:
 
 - delete pantry item.
 
-### Shopping List APIs
+### 4.5 Shopping List Endpoints
 
 1. `GET /api/shopping-list`
 
@@ -278,7 +306,7 @@ Example body:
 
 - add shopping item.
 
-Example body:
+Example request:
 
 ```json
 {
@@ -293,7 +321,7 @@ Example body:
 
 - update shopping item (primarily `purchased` state).
 
-Example body:
+Example request:
 
 ```json
 {
@@ -305,19 +333,22 @@ Example body:
 
 - delete shopping item.
 
-### Common Status Codes
+### 4.6 Response and Error Notes
 
-1. `200` success
-2. `201` created
-3. `400` bad request
-4. `401` unauthorized
-5. `403` forbidden
-6. `404` not found
-7. `405` method not allowed
-8. `409` conflict
-9. `500` internal server error
+1. API uses a mix of plain-text errors (`http.Error`) and JSON errors (`respondError`) depending on handler.
+2. Common HTTP status codes used:
 
-### Environment Variables
+- `200` success
+- `201` created
+- `400` bad request
+- `401` unauthorized
+- `403` forbidden
+- `404` not found
+- `405` method not allowed
+- `409` conflict
+- `500` internal server error
+
+### 4.7 Environment Variables
 
 1. `DATABASE_URL` (required)
 2. `JWT_SECRET` (recommended)

@@ -233,6 +233,7 @@ const ShoppingList: React.FC = () => {
                   </label>
                   <select
                     name="unit"
+                    title="Unit"
                     className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                   >
                     <option value="">Select unit</option>
@@ -250,6 +251,7 @@ const ShoppingList: React.FC = () => {
                   </label>
                   <select
                     name="category"
+                    title="Category"
                     className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                   >
                     <option value="">Uncategorized</option>
@@ -304,6 +306,7 @@ const ShoppingList: React.FC = () => {
                         type="checkbox"
                         checked={false}
                         onChange={() => handleMarkPurchased(item.id, true)}
+                        title="Mark as purchased"
                         className="mt-1 w-5 h-5 cursor-pointer"
                       />
                       <div className="flex-1">
@@ -349,6 +352,7 @@ const ShoppingList: React.FC = () => {
                         type="checkbox"
                         checked={true}
                         onChange={() => handleMarkPurchased(item.id, false)}
+                        title="Mark as not purchased"
                         className="mt-1 w-5 h-5 cursor-pointer"
                       />
                       <div className="flex-1">
