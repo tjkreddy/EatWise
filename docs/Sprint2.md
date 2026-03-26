@@ -88,17 +88,22 @@ Location: `eatwise-app/apps/web/src/__tests__/`
 - verifies loading/error states.
 - verifies add/list behavior.
 
-5. `authAPI.test.ts`
+5. `ManageHouseholdPage.test.tsx`
+
+- verifies owner-only visibility for member removal action.
+- verifies remove action calls `householdAPI.removeMember` with the selected member.
+
+6. `authAPI.test.ts`
 
 - verifies auth API client behavior.
 
-6. `householdAPI.test.ts`
+7. `householdAPI.test.ts`
 
 - verifies household API client behavior.
 - includes `removeMember` success and failure scenarios for
   `DELETE /api/households/{householdId}/members/{userId}`.
 
-7. `shoppingListAPI.test.ts`
+8. `shoppingListAPI.test.ts`
 
 - verifies shopping-list API client behavior.
 
