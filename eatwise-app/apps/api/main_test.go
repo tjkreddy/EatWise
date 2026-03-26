@@ -284,6 +284,91 @@ func TestRemoveMemberNotOwner(t *testing.T) {
 	}
 }
 
+func TestListHouseholdMembers(t *testing.T) {
+	requireDB(t)
+	ownerID, ownerToken := setupTestUser(t)
+	householdID := setupTestHousehold(t, ownerID)
+
+	memberID, _ := setupTestUser(t)
+	_, err := db.Exec(`INSERT INTO household_members (household_id, user_id, role) VALUES ($1, $2, 'member')`, householdID, memberID)
+	if err != nil {
+		t.Fatalf("Failed to add member: %v", err)
+	}
+	defer cleanupTestData(t, ownerID)
+	defer cleanupTestData(t, memberID)
+
+	req := httptest.NewRequest("GET", "/api/households/"+householdID+"/members", nil)
+	req.Header.Set("Authorization", "Bearer "+ownerToken)
+
+	w := httptest.NewRecorder()
+	householdSubrouteHandler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	var members []HouseholdMember
+	if err := json.Unmarshal(w.Body.Bytes(), &members); err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+
+	if len(members) != 2 {
+		t.Fatalf("Expected 2 members, got %d", len(members))
+	}
+}
+
+func TestListHouseholdMembersForbiddenForNonMember(t *testing.T) {
+	requireDB(t)
+	ownerID, _ := setupTestUser(t)
+	householdID := setupTestHousehold(t, ownerID)
+
+	outsiderID, outsiderToken := setupTestUser(t)
+	defer cleanupTestData(t, ownerID)
+	defer cleanupTestData(t, outsiderID)
+
+	req := httptest.NewRequest("GET", "/api/households/"+householdID+"/members", nil)
+	req.Header.Set("Authorization", "Bearer "+outsiderToken)
+
+	w := httptest.NewRecorder()
+	householdSubrouteHandler(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("Expected status 403, got %d", w.Code)
+	}
+}
+
+func TestGetHouseholdSummary(t *testing.T) {
+	requireDB(t)
+	userID, token := setupTestUser(t)
+	setupTestHousehold(t, userID)
+	defer cleanupTestData(t, userID)
+
+	req := httptest.NewRequest("GET", "/api/households/me/summary", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	w := httptest.NewRecorder()
+	getHouseholdSummaryHandler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", w.Code)
+	}
+
+	var summary HouseholdSummaryResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &summary); err != nil {
+		t.Fatalf("Failed to unmarshal summary: %v", err)
+	}
+
+	if summary.HouseholdID == "" {
+		t.Fatal("Expected household_id in summary")
+	}
+	if summary.CurrentUserRole != "owner" {
+		t.Fatalf("Expected role owner, got %s", summary.CurrentUserRole)
+	}
+	if summary.MembersCount < 1 {
+		t.Fatalf("Expected at least 1 member, got %d", summary.MembersCount)
+	}
+}
+
 func TestPantryUnauthorizedWithoutHousehold(t *testing.T) {
 	requireDB(t)
 	userID, token := setupTestUser(t)
@@ -359,5 +444,55 @@ func TestPantryCRUD(t *testing.T) {
 	}
 	if items[0].Name != "Test Item" {
 		t.Errorf("Expected name 'Test Item', got '%s'", items[0].Name)
+	}
+}
+
+func TestClearPurchasedShoppingItems(t *testing.T) {
+	requireDB(t)
+	userID, token := setupTestUser(t)
+	householdID := setupTestHousehold(t, userID)
+	defer cleanupTestData(t, userID)
+
+	// Insert purchased and unpurchased items.
+	_, err := db.Exec(`
+		INSERT INTO shopping_list (household_id, user_id, name, quantity, unit, category, purchased)
+		VALUES
+		($1, $2, 'Milk', 1, 'liters', 'Dairy', true),
+		($1, $2, 'Bread', 1, 'pieces', 'Bakery', false)
+	`, householdID, userID)
+	if err != nil {
+		t.Fatalf("Failed to seed shopping items: %v", err)
+	}
+
+	req := httptest.NewRequest("DELETE", "/api/shopping-list/clear-purchased", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	w := httptest.NewRecorder()
+	clearPurchasedShoppingItemsHandler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", w.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if resp["message"] != "purchased items cleared" {
+		t.Fatalf("Unexpected message: %v", resp["message"])
+	}
+
+	if resp["deleted_count"].(float64) != 1 {
+		t.Fatalf("Expected deleted_count 1, got %v", resp["deleted_count"])
+	}
+
+	var remaining int
+	err = db.QueryRow(`SELECT COUNT(*) FROM shopping_list WHERE household_id = $1`, householdID).Scan(&remaining)
+	if err != nil {
+		t.Fatalf("Failed to count remaining items: %v", err)
+	}
+	if remaining != 1 {
+		t.Fatalf("Expected 1 remaining item, got %d", remaining)
 	}
 }
