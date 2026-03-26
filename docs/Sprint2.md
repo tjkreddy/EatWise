@@ -1,6 +1,6 @@
 # Sprint 2 Report
 
-## 1. Detailed Work Completed in Sprint 2
+## Sprint 2 Completed Work
 
 ### Backend (Go API)
 
@@ -62,7 +62,7 @@
 3. Updated backend DB-backed tests to skip cleanly when DB is unavailable.
 4. Verified backend test suite using `go test ./...` in `eatwise-app/apps/api`.
 
-## 2. Frontend Tests
+## Frontend Test Inventory
 
 ### Frontend Unit Tests (Vitest)
 
@@ -102,7 +102,7 @@ Location: `eatwise-app/apps/web/src/__tests__/`
 
 - validates shopping list API utility behavior.
 
-### Cypress Tests (Frontend E2E)
+### Cypress End-to-End Tests
 
 Location: `eatwise-app/apps/web/cypress/e2e/`
 
@@ -119,11 +119,11 @@ Location: `eatwise-app/apps/web/cypress/e2e/`
 - verifies shopping list flow.
 - verifies dashboard/navigation/logout flow.
 
-## 3. Backend Unit Tests
+## Backend Unit Test Inventory
 
 Location: `eatwise-app/apps/api/`
 
-### Pure Unit Tests
+### Pure Unit Tests (No DB Dependency)
 
 File: `unit_handlers_test.go`
 
@@ -160,23 +160,22 @@ Note:
 
 - DB-backed tests auto-skip when DB is unavailable.
 
-## 4. Backend API Documentation
+## Backend API Documentation
+
+### API Basics
 
 Implementation source: `eatwise-app/apps/api/main.go`
-
 Base URL (local): `http://localhost:8080`
-
 Protected endpoint auth header:
 
 - `Authorization: Bearer <jwt>`
 
-### Authentication APIs
+### Authentication Endpoints
 
 1. `POST /api/auth/signup`
 
 - creates user and returns token + user.
-
-Example body:
+  Example body:
 
 ```json
 {
@@ -189,8 +188,7 @@ Example body:
 2. `POST /api/auth/login`
 
 - logs in user and returns token + user.
-
-Example body:
+  Example body:
 
 ```json
 {
@@ -199,7 +197,7 @@ Example body:
 }
 ```
 
-### Household APIs
+### Household Endpoints
 
 1. `POST /api/households`
 
@@ -212,8 +210,7 @@ Example body:
 3. `POST /api/households/join`
 
 - join household by invite code.
-
-Example body:
+  Example body:
 
 ```json
 {
@@ -237,7 +234,7 @@ Example body:
 
 - remove member from household (owner only).
 
-### Pantry APIs
+### Pantry Endpoints
 
 1. `GET /api/pantry/items`
 
@@ -246,8 +243,7 @@ Example body:
 2. `POST /api/pantry/items`
 
 - add pantry item.
-
-Example body:
+  Example body:
 
 ```json
 {
@@ -268,7 +264,7 @@ Example body:
 
 - delete pantry item.
 
-### Shopping List APIs
+### Shopping List Endpoints
 
 1. `GET /api/shopping-list`
 
@@ -277,8 +273,7 @@ Example body:
 2. `POST /api/shopping-list`
 
 - add shopping item.
-
-Example body:
+  Example body:
 
 ```json
 {
@@ -292,8 +287,7 @@ Example body:
 3. `PUT /api/shopping-list/{id}`
 
 - update shopping item (primarily `purchased` state).
-
-Example body:
+  Example body:
 
 ```json
 {
@@ -305,7 +299,7 @@ Example body:
 
 - delete shopping item.
 
-### Common Status Codes
+### Common HTTP Status Codes
 
 1. `200` success
 2. `201` created
