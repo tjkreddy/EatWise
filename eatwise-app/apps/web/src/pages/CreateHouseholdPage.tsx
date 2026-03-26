@@ -139,6 +139,8 @@ const CreateHouseholdPage: React.FC = () => {
                   type="text"
                   value={inviteCode}
                   readOnly
+                  title="Household invite code"
+                  placeholder="Invite code"
                   className="flex-1 rounded-md border border-gray-300 px-3 py-2 bg-gray-100"
                 />
                 <button
