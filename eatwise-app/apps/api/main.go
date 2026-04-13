@@ -105,6 +105,11 @@ type JoinHouseholdRequest struct {
 	InviteCode string `json:"invite_code"`
 }
 
+type JoinHouseholdResponse struct {
+	Message   string    `json:"message"`
+	Household Household `json:"household"`
+}
+
 type HouseholdMeResponse struct {
 	Household Household         `json:"household"`
 	Members   []HouseholdMember `json:"members"`
@@ -661,9 +666,20 @@ func joinHouseholdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]string{
-		"message":      "joined",
-		"household_id": householdID,
+	var joined Household
+	err = db.QueryRow(`
+		SELECT id, name, invite_code, created_by, created_at
+		FROM households
+		WHERE id = $1
+	`, householdID).Scan(&joined.ID, &joined.Name, &joined.InviteCode, &joined.CreatedBy, &joined.CreatedAt)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to fetch household", "INTERNAL_ERROR")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, JoinHouseholdResponse{
+		Message:   "joined",
+		Household: joined,
 	})
 }
 

@@ -178,13 +178,19 @@ func TestJoinHousehold(t *testing.T) {
 		t.Errorf("Expected status 200, got %d", w.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp JoinHouseholdResponse
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("Failed to unmarshal response: %v", err)
 	}
 
-	if resp["message"] != "joined" {
-		t.Errorf("Expected message 'joined', got '%v'", resp["message"])
+	if resp.Message != "joined" {
+		t.Errorf("Expected message 'joined', got '%v'", resp.Message)
+	}
+	if resp.Household.ID != householdID {
+		t.Errorf("Expected household ID '%s', got '%s'", householdID, resp.Household.ID)
+	}
+	if resp.Household.Name == "" {
+		t.Fatal("Expected household name in response")
 	}
 }
 
