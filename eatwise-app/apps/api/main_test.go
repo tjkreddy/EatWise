@@ -367,6 +367,49 @@ func TestTransferOwnershipNotOwner(t *testing.T) {
 	}
 }
 
+func TestFormerOwnerCanLeaveAfterTransfer(t *testing.T) {
+	requireDB(t)
+	ownerID, ownerToken := setupTestUser(t)
+	householdID := setupTestHousehold(t, ownerID)
+
+	newOwnerID, _ := setupTestUser(t)
+	_, err := db.Exec(`INSERT INTO household_members (household_id, user_id, role) VALUES ($1, $2, 'member')`, householdID, newOwnerID)
+	if err != nil {
+		t.Fatalf("Failed to add new owner candidate: %v", err)
+	}
+	defer cleanupTestData(t, ownerID)
+	defer cleanupTestData(t, newOwnerID)
+
+	transferBody, _ := json.Marshal(map[string]string{"new_owner_user_id": newOwnerID})
+	transferReq := httptest.NewRequest("POST", "/api/households/"+householdID+"/transfer-ownership", bytes.NewReader(transferBody))
+	transferReq.Header.Set("Content-Type", "application/json")
+	transferReq.Header.Set("Authorization", "Bearer "+ownerToken)
+
+	transferRes := httptest.NewRecorder()
+	householdSubrouteHandler(transferRes, transferReq)
+	if transferRes.Code != http.StatusOK {
+		t.Fatalf("Expected transfer status 200, got %d", transferRes.Code)
+	}
+
+	leaveReq := httptest.NewRequest("POST", "/api/households/leave", nil)
+	leaveReq.Header.Set("Authorization", "Bearer "+ownerToken)
+
+	leaveRes := httptest.NewRecorder()
+	leaveHouseholdHandler(leaveRes, leaveReq)
+	if leaveRes.Code != http.StatusOK {
+		t.Fatalf("Expected leave status 200, got %d", leaveRes.Code)
+	}
+
+	var stillMember bool
+	err = db.QueryRow(`SELECT EXISTS(SELECT 1 FROM household_members WHERE household_id = $1 AND user_id = $2)`, householdID, ownerID).Scan(&stillMember)
+	if err != nil {
+		t.Fatalf("Failed to verify old owner membership: %v", err)
+	}
+	if stillMember {
+		t.Fatal("Expected former owner to be removed from household after leave")
+	}
+}
+
 func TestListHouseholdMembers(t *testing.T) {
 	requireDB(t)
 	ownerID, ownerToken := setupTestUser(t)
