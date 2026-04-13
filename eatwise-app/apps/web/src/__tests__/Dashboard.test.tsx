@@ -72,7 +72,7 @@ describe("Dashboard", () => {
 
     vi.mocked(authAPIModule.authAPI.getUser).mockReturnValue(mockUser);
     vi.mocked(householdAPIModule.householdAPI.getMyHousehold).mockResolvedValue(
-      mockHousehold
+      mockHousehold,
     );
   });
 
@@ -82,7 +82,7 @@ describe("Dashboard", () => {
     render(
       <BrowserRouter>
         <Dashboard />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
     expect(mockNavigate).toHaveBeenCalledWith("/login");
@@ -92,7 +92,7 @@ describe("Dashboard", () => {
     render(
       <BrowserRouter>
         <Dashboard />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
     await waitFor(() => {
@@ -104,11 +104,11 @@ describe("Dashboard", () => {
     render(
       <BrowserRouter>
         <Dashboard />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Test Household")).toBeInTheDocument();
+      expect(screen.getByText("Test Household")).toBeDefined();
     });
   });
 
@@ -116,12 +116,12 @@ describe("Dashboard", () => {
     render(
       <BrowserRouter>
         <Dashboard />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Test User")).toBeInTheDocument();
-      expect(screen.getByText("Member User")).toBeInTheDocument();
+      expect(screen.getByText("Test User")).toBeDefined();
+      expect(screen.getByText("Member User")).toBeDefined();
     });
   });
 
@@ -129,12 +129,12 @@ describe("Dashboard", () => {
     render(
       <BrowserRouter>
         <Dashboard />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
     await waitFor(() => {
-      expect(screen.getByText("test@example.com")).toBeInTheDocument();
-      expect(screen.getByText("member@example.com")).toBeInTheDocument();
+      expect(screen.getByText("test@example.com")).toBeDefined();
+      expect(screen.getByText("member@example.com")).toBeDefined();
     });
   });
 
@@ -142,24 +142,31 @@ describe("Dashboard", () => {
     render(
       <BrowserRouter>
         <Dashboard />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/Welcome|Hello/i)).toBeInTheDocument();
+      expect(screen.getByText(/Good morning|Welcome|Hello/i)).toBeDefined();
     });
   });
 
-  it("should have navigation links to main pages", async () => {
+  it("should have navigation buttons to main pages", async () => {
     render(
       <BrowserRouter>
         <Dashboard />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
     await waitFor(() => {
-      const links = screen.getAllByRole("link");
-      expect(links.length).toBeGreaterThan(0);
+      expect(
+        screen.getByRole("button", { name: /manage household/i }),
+      ).toBeDefined();
+      expect(
+        screen.getByRole("button", { name: /pantry list/i }),
+      ).toBeDefined();
+      expect(
+        screen.getByRole("button", { name: /shopping list/i }),
+      ).toBeDefined();
     });
   });
 
@@ -167,11 +174,11 @@ describe("Dashboard", () => {
     render(
       <BrowserRouter>
         <Dashboard />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /logout/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /logout/i })).toBeDefined();
     });
   });
 
@@ -179,7 +186,7 @@ describe("Dashboard", () => {
     render(
       <BrowserRouter>
         <Dashboard />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
     await waitFor(() => {
@@ -193,18 +200,18 @@ describe("Dashboard", () => {
 
   it("should handle household fetch error", async () => {
     vi.mocked(householdAPIModule.householdAPI.getMyHousehold).mockRejectedValue(
-      new Error("Failed to fetch household")
+      new Error("Failed to fetch household"),
     );
 
     render(
       <BrowserRouter>
         <Dashboard />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
     await waitFor(() => {
       // Error should be handled gracefully
-      expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 1 })).toBeDefined();
     });
   });
 
@@ -212,7 +219,7 @@ describe("Dashboard", () => {
     render(
       <BrowserRouter>
         <Dashboard />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
     await waitFor(() => {
@@ -225,13 +232,13 @@ describe("Dashboard", () => {
     render(
       <BrowserRouter>
         <Dashboard />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
     await waitFor(() => {
       // Check for household identification
       const heading = screen.getByText("Test Household");
-      expect(heading).toBeInTheDocument();
+      expect(heading).toBeDefined();
     });
   });
 
@@ -239,14 +246,14 @@ describe("Dashboard", () => {
     render(
       <BrowserRouter>
         <Dashboard />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
     await waitFor(() => {
       // Check for member count or list
-      expect(screen.getAllByText(/test@example.com|member@example.com/)).toHaveLength(
-        2
-      );
+      expect(
+        screen.getAllByText(/test@example.com|member@example.com/),
+      ).toHaveLength(2);
     });
   });
 });

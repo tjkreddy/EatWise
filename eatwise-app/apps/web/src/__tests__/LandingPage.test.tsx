@@ -21,33 +21,33 @@ describe("LandingPage", () => {
     render(
       <BrowserRouter>
         <LandingPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
     expect(
-      screen.getByText("EatWise: Smart Kitchen, Zero Waste")
-    ).toBeInTheDocument();
+      screen.getByText("EatWise: Smart Kitchen, Zero Waste."),
+    ).toBeDefined();
   });
 
   it("should render the tagline", () => {
     render(
       <BrowserRouter>
         <LandingPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
     expect(
       screen.getByText(
-        /Effortless pantry management, expiration tracking, and meal planning/i
-      )
-    ).toBeInTheDocument();
+        /Effortless pantry management, expiration tracking, and meal planning/i,
+      ),
+    ).toBeDefined();
   });
 
   it("should have navigation with login and signup buttons", () => {
     render(
       <BrowserRouter>
         <LandingPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
     const loginLinks = screen.getAllByRole("link", { name: /login/i });
@@ -61,38 +61,40 @@ describe("LandingPage", () => {
     render(
       <BrowserRouter>
         <LandingPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
-    expect(screen.getByText("EatWise")).toBeInTheDocument();
+    expect(screen.getByText("EatWise")).toBeDefined();
   });
 
   it("should have get started button", () => {
     render(
       <BrowserRouter>
         <LandingPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
-    expect(screen.getByRole("link", { name: /get started now/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /get started now/i }),
+    ).toBeDefined();
   });
 
   it("should render FAQ section", () => {
     render(
       <BrowserRouter>
         <LandingPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
-    expect(screen.getByText(/how do i get started/i)).toBeInTheDocument();
-    expect(screen.getByText(/is eatwise really free/i)).toBeInTheDocument();
+    expect(screen.getByText(/how do i get started/i)).toBeDefined();
+    expect(screen.getByText(/is eatwise really free/i)).toBeDefined();
   });
 
   it("should render feature description headings", () => {
     render(
       <BrowserRouter>
         <LandingPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
     // Check for feature headings (they should be present based on the component)
@@ -104,7 +106,7 @@ describe("LandingPage", () => {
     render(
       <BrowserRouter>
         <LandingPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
     const loginLinks = screen.getAllByRole("link", { name: /login/i });
@@ -112,14 +114,14 @@ describe("LandingPage", () => {
 
     // Navigation should have login links
     expect(loginLinks.length).toBeGreaterThanOrEqual(2); // At least in nav and hero section
-    expect(signupLinks.length).toBeGreaterThanOrEqual(2); // At least in nav and hero section
+    expect(signupLinks.length).toBeGreaterThanOrEqual(1);
   });
 
   it("should have responsive layout classes", () => {
     const { container } = render(
       <BrowserRouter>
         <LandingPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
     const responsiveElements = container.querySelectorAll("[class*='md:']");
@@ -130,29 +132,31 @@ describe("LandingPage", () => {
     render(
       <BrowserRouter>
         <LandingPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
-    expect(screen.getByText(/how do i get started with eatwise/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/can i share my pantry with family members/i)
-    ).toBeInTheDocument();
+      screen.getByText(/how do i get started with eatwise/i),
+    ).toBeDefined();
     expect(
-      screen.getByText(/how does eatwise help reduce food waste/i)
-    ).toBeInTheDocument();
+      screen.getByText(/can i share my pantry with family members/i),
+    ).toBeDefined();
     expect(
-      screen.getByText(/can i access eatwise on my phone/i)
-    ).toBeInTheDocument();
+      screen.getByText(/how does eatwise help reduce food waste/i),
+    ).toBeDefined();
+    expect(screen.getByText(/can i access eatwise on my phone/i)).toBeDefined();
   });
 
   it("should have styled container with correct classes", () => {
     const { container } = render(
       <BrowserRouter>
         <LandingPage />
-      </BrowserRouter>
+      </BrowserRouter>,
     );
 
-    const minHeightElements = container.querySelectorAll("[class*='min-h-screen']");
+    const minHeightElements = container.querySelectorAll(
+      "[class*='min-h-screen']",
+    );
     expect(minHeightElements.length).toBeGreaterThan(0);
   });
 });

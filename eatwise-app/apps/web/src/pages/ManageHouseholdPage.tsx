@@ -19,7 +19,7 @@ const ManageHouseholdPage: React.FC = () => {
   const [memberSearch, setMemberSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
-  const user = authAPI.getUser();
+  const [user] = useState(() => authAPI.getUser());
 
   const loadHousehold = useCallback(
     async (showInitialLoader = false) => {
@@ -52,7 +52,7 @@ const ManageHouseholdPage: React.FC = () => {
         setRefreshing(false);
       }
     },
-    [navigate, user],
+    [navigate, user?.id],
   );
 
   useEffect(() => {

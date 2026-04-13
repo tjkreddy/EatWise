@@ -39,9 +39,9 @@ describe("LoginPage", () => {
       </BrowserRouter>
     );
 
-    expect(screen.getByText("Login to EatWise")).toBeInTheDocument();
-    expect(screen.getByLabelText("Email")).toBeInTheDocument();
-    expect(screen.getByLabelText("Password")).toBeInTheDocument();
+    expect(screen.getByText("Login to EatWise")).toBeDefined();
+    expect(screen.getByLabelText("Email")).toBeDefined();
+    expect(screen.getByLabelText("Password")).toBeDefined();
   });
 
   it("should render sign in button", () => {
@@ -51,7 +51,7 @@ describe("LoginPage", () => {
       </BrowserRouter>
     );
 
-    expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /sign in/i })).toBeDefined();
   });
 
   it("should have link to signup page", () => {
@@ -61,7 +61,7 @@ describe("LoginPage", () => {
       </BrowserRouter>
     );
 
-    expect(screen.getByRole("link", { name: /sign up/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /sign up/i })).toBeDefined();
   });
 
   it("should fill form fields with input", () => {
@@ -152,7 +152,7 @@ describe("LoginPage", () => {
     fireEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(screen.getByText(/invalid credentials/i)).toBeInTheDocument();
+      expect(screen.getByText(/invalid credentials/i)).toBeDefined();
     });
   });
 
@@ -175,8 +175,8 @@ describe("LoginPage", () => {
     fireEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(submitButton).toBeDisabled();
-      expect(screen.getByText(/signing in/i)).toBeInTheDocument();
+      expect(submitButton).toHaveProperty("disabled", true);
+      expect(screen.getByText(/signing in/i)).toBeDefined();
     });
   });
 
@@ -187,6 +187,6 @@ describe("LoginPage", () => {
       </BrowserRouter>
     );
 
-    expect(screen.getByRole("link", { name: /back to welcome/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /back to welcome/i })).toBeDefined();
   });
 });
