@@ -96,6 +96,11 @@ type CreateHouseholdRequest struct {
 	Name string `json:"name"`
 }
 
+type CreateHouseholdResponse struct {
+	Household  Household `json:"household"`
+	InviteCode string    `json:"invite_code"`
+}
+
 type JoinHouseholdRequest struct {
 	InviteCode string `json:"invite_code"`
 }
@@ -515,12 +520,17 @@ func createHouseholdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusCreated, Household{
+	createdHousehold := Household{
 		ID:         householdID,
 		Name:       req.Name,
 		InviteCode: inviteCode,
 		CreatedBy:  userID,
 		CreatedAt:  createdAt,
+	}
+
+	respondJSON(w, http.StatusCreated, CreateHouseholdResponse{
+		Household:  createdHousehold,
+		InviteCode: inviteCode,
 	})
 }
 

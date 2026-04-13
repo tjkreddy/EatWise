@@ -111,16 +111,19 @@ func TestCreateHousehold(t *testing.T) {
 		t.Errorf("Expected status 201, got %d", w.Code)
 	}
 
-	var resp Household
+	var resp CreateHouseholdResponse
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("Failed to unmarshal response: %v", err)
 	}
 
-	if resp.Name != "Test Household" {
-		t.Errorf("Expected name 'Test Household', got '%s'", resp.Name)
+	if resp.Household.Name != "Test Household" {
+		t.Errorf("Expected name 'Test Household', got '%s'", resp.Household.Name)
 	}
-	if resp.CreatedBy != userID {
-		t.Errorf("Expected created_by '%s', got '%s'", userID, resp.CreatedBy)
+	if resp.Household.CreatedBy != userID {
+		t.Errorf("Expected created_by '%s', got '%s'", userID, resp.Household.CreatedBy)
+	}
+	if resp.InviteCode == "" {
+		t.Fatal("Expected invite_code to be present")
 	}
 }
 
