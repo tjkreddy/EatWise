@@ -441,10 +441,10 @@ Example request:
 
 ```json
 {
-	"name": "Bread",
-	"quantity": 2,
-	"unit": "loaves",
-	"category": "Bakery",
+  "name": "Bread",
+  "quantity": 2,
+  "unit": "loaves",
+  "category": "Bakery",
   "purchased": true
 }
 ```
@@ -477,6 +477,7 @@ Example response:
   "code": "ERROR_CODE"
 }
 ```
+
 3. Common HTTP status codes used:
 
 - `200` success
