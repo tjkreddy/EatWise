@@ -282,4 +282,243 @@ describe("ShoppingList", () => {
       expect(screen.getByText("Bread")).toBeDefined();
     });
   });
+
+  it("should show success message when adding item", async () => {
+    const newItem = {
+      id: 1,
+      name: "Apples",
+      quantity: 5,
+      unit: "pieces",
+      category: "Fruits",
+      purchased: false,
+    };
+
+    vi.mocked(shoppingListAPIModule.shoppingListAPI.addItem).mockResolvedValue(
+      newItem,
+    );
+    vi.mocked(shoppingListAPIModule.shoppingListAPI.getItems).mockResolvedValue(
+      [],
+    );
+
+    render(
+      <BrowserRouter>
+        <ShoppingList />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      const addButton = screen.getByText("+ Add Item");
+      fireEvent.click(addButton);
+    });
+
+    fireEvent.change(screen.getByPlaceholderText(/milk, tomatoes, bread/i), {
+      target: { value: "Apples" },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/amount/i), {
+      target: { value: "5" },
+    });
+
+    const submitButton = screen.getByRole("button", { name: /add item/i });
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Added "Apples" to shopping list')).toBeDefined();
+    });
+  });
+
+  it("should show success message when marking item as purchased", async () => {
+    const mockItems = [
+      {
+        id: 1,
+        name: "Milk",
+        quantity: 1,
+        unit: "liters",
+        category: "Dairy",
+        purchased: false,
+      },
+    ];
+
+    const purchasedItem = { ...mockItems[0], purchased: true };
+
+    vi.mocked(shoppingListAPIModule.shoppingListAPI.getItems).mockResolvedValue(
+      mockItems,
+    );
+    vi.mocked(shoppingListAPIModule.shoppingListAPI.markPurchased).mockResolvedValue(
+      purchasedItem,
+    );
+
+    render(
+      <BrowserRouter>
+        <ShoppingList />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      const checkbox = screen.getByRole("checkbox");
+      fireEvent.click(checkbox);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Marked "Milk" as purchased')).toBeDefined();
+    });
+  });
+
+  it("should show success message when deleting item", async () => {
+    const mockItems = [
+      {
+        id: 1,
+        name: "Milk",
+        quantity: 1,
+        unit: "liters",
+        category: "Dairy",
+        purchased: false,
+      },
+    ];
+
+    vi.mocked(shoppingListAPIModule.shoppingListAPI.getItems).mockResolvedValue(
+      mockItems,
+    );
+    vi.mocked(shoppingListAPIModule.shoppingListAPI.deleteItem).mockResolvedValue();
+
+    // Mock window.confirm
+    vi.stubGlobal("confirm", vi.fn(() => true));
+
+    render(
+      <BrowserRouter>
+        <ShoppingList />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      const deleteButton = screen.getByText("Delete");
+      fireEvent.click(deleteButton);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Removed "Milk" from shopping list')).toBeDefined();
+    });
+  });
+
+  it("should show success message when clearing purchased items", async () => {
+    const mockItems = [
+      {
+        id: 1,
+        name: "Milk",
+        quantity: 1,
+        unit: "liters",
+        category: "Dairy",
+        purchased: true,
+      },
+      {
+        id: 2,
+        name: "Bread",
+        quantity: 1,
+        unit: "loaf",
+        category: "Bakery",
+        purchased: true,
+      },
+    ];
+
+    vi.mocked(shoppingListAPIModule.shoppingListAPI.getItems).mockResolvedValue(
+      mockItems,
+    );
+    vi.mocked(shoppingListAPIModule.shoppingListAPI.clearPurchased).mockResolvedValue({
+      message: "purchased items cleared",
+      deleted_count: 2,
+    });
+
+    render(
+      <BrowserRouter>
+        <ShoppingList />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      const clearButton = screen.getByText("Clear All");
+      fireEvent.click(clearButton);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Cleared 2 purchased items")).toBeDefined();
+    });
+  });
+
+  it("should display pending items with distinct styling", async () => {
+    const mockItems = [
+      {
+        id: 1,
+        name: "Milk",
+        quantity: 1,
+        unit: "liters",
+        category: "Dairy",
+        purchased: false,
+      },
+    ];
+
+    vi.mocked(shoppingListAPIModule.shoppingListAPI.getItems).mockResolvedValue(
+      mockItems,
+    );
+
+    render(
+      <BrowserRouter>
+        <ShoppingList />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      // Check for pending items section
+      expect(screen.getByText("To Buy (1)")).toBeDefined();
+      // Check for amber styling (pending items)
+      const itemCard = screen.getByText("Milk").closest("div");
+      expect(itemCard?.className).toContain("border-amber-200");
+    });
+  });
+
+  it("should display completed items with distinct styling", async () => {
+    const mockItems = [
+      {
+        id: 1,
+        name: "Milk",
+        quantity: 1,
+        unit: "liters",
+        category: "Dairy",
+        purchased: true,
+      },
+    ];
+
+    vi.mocked(shoppingListAPIModule.shoppingListAPI.getItems).mockResolvedValue(
+      mockItems,
+    );
+
+    render(
+      <BrowserRouter>
+        <ShoppingList />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      // Check for completed items section
+      expect(screen.getByText("Already Bought (1)")).toBeDefined();
+      // Check for green styling (completed items)
+      const itemCard = screen.getByText("Milk").closest("div");
+      expect(itemCard?.className).toContain("border-green-200");
+    });
+  });
+
+  it("should show improved empty state for pending items", async () => {
+    vi.mocked(shoppingListAPIModule.shoppingListAPI.getItems).mockResolvedValue(
+      [],
+    );
+
+    render(
+      <BrowserRouter>
+        <ShoppingList />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("All caught up!")).toBeDefined();
+      expect(screen.getByText("Add First Item")).toBeDefined();
+    });
+  });
 });
