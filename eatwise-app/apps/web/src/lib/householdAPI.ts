@@ -21,7 +21,12 @@ export interface CreateHouseholdResponse {
 }
 
 export interface JoinHouseholdResponse {
+  message: string;
   household: Household;
+}
+
+export interface TransferOwnershipResponse {
+  message: string;
 }
 
 export interface GetMyHouseholdResponse {
@@ -46,7 +51,18 @@ export const householdAPI = {
     });
 
     if (!response.ok) {
-      throw new Error((await response.text()) || "Failed to create household");
+      const errorText = await response.text();
+      if (response.status === 400) {
+        throw new Error(errorText || "Invalid household name");
+      } else if (response.status === 401) {
+        throw new Error("Authentication required");
+      } else if (response.status === 403) {
+        throw new Error("Insufficient permissions");
+      } else if (response.status === 404) {
+        throw new Error("Resource not found");
+      } else {
+        throw new Error(errorText || "Failed to create household");
+      }
     }
 
     return response.json();
@@ -60,7 +76,18 @@ export const householdAPI = {
     });
 
     if (!response.ok) {
-      throw new Error((await response.text()) || "Failed to join household");
+      const errorText = await response.text();
+      if (response.status === 400) {
+        throw new Error(errorText || "Invalid invite code");
+      } else if (response.status === 401) {
+        throw new Error("Authentication required");
+      } else if (response.status === 403) {
+        throw new Error("Insufficient permissions");
+      } else if (response.status === 404) {
+        throw new Error("Household not found");
+      } else {
+        throw new Error(errorText || "Failed to join household");
+      }
     }
 
     return response.json();
@@ -120,5 +147,36 @@ export const householdAPI = {
     if (!response.ok) {
       throw new Error((await response.text()) || "Failed to remove member");
     }
+  },
+
+  transferOwnership: async (
+    householdId: string,
+    newOwnerUserId: string,
+  ): Promise<TransferOwnershipResponse> => {
+    const response = await fetch(
+      `${API_BASE_URL}/api/households/${householdId}/transfer-ownership`,
+      {
+        method: "POST",
+        headers: makeAuthHeaders(),
+        body: JSON.stringify({ new_owner_user_id: newOwnerUserId }),
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      if (response.status === 400) {
+        throw new Error(errorText || "Invalid request");
+      } else if (response.status === 401) {
+        throw new Error("Authentication required");
+      } else if (response.status === 403) {
+        throw new Error("Insufficient permissions");
+      } else if (response.status === 404) {
+        throw new Error("Household or user not found");
+      } else {
+        throw new Error(errorText || "Failed to transfer ownership");
+      }
+    }
+
+    return response.json();
   },
 };

@@ -58,7 +58,7 @@ describe("householdAPI", () => {
 
   describe("joinHousehold", () => {
     it("should join a household with invite code", async () => {
-      const response = { household: mockHousehold };
+      const response = { message: "Successfully joined household", household: mockHousehold };
 
       global.fetch = vi.fn(() =>
         Promise.resolve({
@@ -234,6 +234,45 @@ describe("householdAPI", () => {
       await expect(
         householdAPI.removeMember("household-123", "user-456"),
       ).rejects.toThrow("Failed to remove member");
+    });
+  });
+
+  describe("transferOwnership", () => {
+    it("should transfer ownership to another user", async () => {
+      const response = { message: "Ownership transferred successfully" };
+
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(response),
+        }),
+      ) as any;
+
+      const result = await householdAPI.transferOwnership("household-123", "user-456");
+
+      expect(result).toEqual(response);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "/api/households/household-123/transfer-ownership",
+        ),
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ new_owner_user_id: "user-456" }),
+        }),
+      );
+    });
+
+    it("should throw an error when transfer ownership fails", async () => {
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          text: () => Promise.resolve("Failed to transfer ownership"),
+        }),
+      ) as any;
+
+      await expect(
+        householdAPI.transferOwnership("household-123", "user-456"),
+      ).rejects.toThrow("Failed to transfer ownership");
     });
   });
 });
