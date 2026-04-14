@@ -484,14 +484,3 @@ d2ce4fa - feat: standardize pantry/shopping errors to JSON + expand shopping upd
 - ✅ All tests passing (35+ backend, 40+ frontend)
 - ✅ All code committed to GitHub with proper commit messages
 
-**Team Contributions:**
-
-- Backend Dev 2 (Jugal K.): Error standardization, shopping update expansion, input validation, test coverage
-
-**Ready for Submission:**
-
-- ✅ Sprint3.md (this document)
-- ✅ GitHub commits visible and testable
-- ✅ All unit tests passing
-- ⏳ Video presentation (to be recorded)
-- ⏳ Video links (to be submitted to Canvas)
