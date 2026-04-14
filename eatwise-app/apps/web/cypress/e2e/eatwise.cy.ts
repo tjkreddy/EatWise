@@ -80,6 +80,84 @@ describe("EatWise E2E Tests", () => {
       cy.contains(/invite.*code|copy.*code/i).should("be.visible");
       cy.get("button").contains(/copy|share/i).should("exist");
     });
+
+    it("should allow owner to transfer ownership and update post-transfer state", () => {
+      let transferCompleted = false;
+
+      cy.intercept("GET", "**/api/households/me", (req) => {
+        if (!transferCompleted) {
+          req.reply({
+            statusCode: 200,
+            body: {
+              household: {
+                id: "house-1",
+                name: "Test Household",
+                invite_code: "ABC123",
+              },
+              members: [
+                {
+                  user_id: "owner-1",
+                  email: testEmail,
+                  role: "owner",
+                  full_name: "Test User",
+                },
+                {
+                  user_id: "member-1",
+                  email: "member@example.com",
+                  role: "member",
+                  full_name: "Member One",
+                },
+              ],
+            },
+          });
+        } else {
+          req.reply({
+            statusCode: 200,
+            body: {
+              household: {
+                id: "house-1",
+                name: "Test Household",
+                invite_code: "ABC123",
+              },
+              members: [
+                {
+                  user_id: "owner-1",
+                  email: testEmail,
+                  role: "member",
+                  full_name: "Test User",
+                },
+                {
+                  user_id: "member-1",
+                  email: "member@example.com",
+                  role: "owner",
+                  full_name: "Member One",
+                },
+              ],
+            },
+          });
+        }
+      }).as("getHouseholdState");
+
+      cy.intercept("POST", "**/api/households/*/transfer-ownership", (req) => {
+        transferCompleted = true;
+        req.reply({
+          statusCode: 200,
+          body: { message: "Ownership transferred successfully" },
+        });
+      }).as("transferOwnership");
+
+      cy.visit(`${baseUrl}/household/manage`);
+      cy.wait("@getHouseholdState");
+
+      cy.contains("Transfer Ownership").should("be.visible").click();
+      cy.get("select#newOwner").select("member-1");
+      cy.contains("Confirm Transfer").click();
+      cy.wait("@transferOwnership");
+      cy.wait("@getHouseholdState");
+
+      cy.contains("Transfer Ownership").should("not.exist");
+      cy.contains("Leave Household").should("be.visible");
+    });
   });
 
   describe("Shopping List Flow", () => {
