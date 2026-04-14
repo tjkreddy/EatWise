@@ -979,3 +979,64 @@ func TestPantryDeleteInvalidIDErrorContract(t *testing.T) {
 		t.Fatalf("Expected error code INVALID_REQUEST, got %q", errResp["code"])
 	}
 }
+
+func TestAddShoppingItemValidation(t *testing.T) {
+	requireDB(t)
+	userID, token := setupTestUser(t)
+	setupTestHousehold(t, userID)
+	defer cleanupTestData(t, userID)
+
+	t.Run("rejects blank name", func(t *testing.T) {
+		reqBody := map[string]interface{}{
+			"name":     "   ",
+			"quantity": 1,
+		}
+		body, _ := json.Marshal(reqBody)
+
+		req := httptest.NewRequest("POST", "/api/shopping-list", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		w := httptest.NewRecorder()
+		addShoppingItemHandler(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("Expected status 400, got %d", w.Code)
+		}
+
+		var errResp map[string]string
+		if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+			t.Fatalf("Expected JSON error response, got parse error: %v", err)
+		}
+		if errResp["code"] != "VALIDATION_ERROR" {
+			t.Fatalf("Expected error code VALIDATION_ERROR, got %q", errResp["code"])
+		}
+	})
+
+	t.Run("rejects negative quantity", func(t *testing.T) {
+		reqBody := map[string]interface{}{
+			"name":     "Banana",
+			"quantity": -1,
+		}
+		body, _ := json.Marshal(reqBody)
+
+		req := httptest.NewRequest("POST", "/api/shopping-list", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		w := httptest.NewRecorder()
+		addShoppingItemHandler(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("Expected status 400, got %d", w.Code)
+		}
+
+		var errResp map[string]string
+		if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+			t.Fatalf("Expected JSON error response, got parse error: %v", err)
+		}
+		if errResp["code"] != "VALIDATION_ERROR" {
+			t.Fatalf("Expected error code VALIDATION_ERROR, got %q", errResp["code"])
+		}
+	})
+}

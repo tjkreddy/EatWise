@@ -1487,14 +1487,19 @@ func addShoppingItemHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	name, ok := req["name"].(string)
-	if !ok || name == "" {
+	if !ok || strings.TrimSpace(name) == "" {
 		respondError(w, http.StatusBadRequest, "Name is required", "VALIDATION_ERROR")
 		return
 	}
+	name = strings.TrimSpace(name)
 
 	quantity := 1
 	if q, ok := req["quantity"].(float64); ok {
 		quantity = int(q)
+	}
+	if quantity < 0 {
+		respondError(w, http.StatusBadRequest, "Quantity must be non-negative", "VALIDATION_ERROR")
+		return
 	}
 
 	unit, _ := req["unit"].(string)
