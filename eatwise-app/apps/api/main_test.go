@@ -410,6 +410,47 @@ func TestFormerOwnerCanLeaveAfterTransfer(t *testing.T) {
 	}
 }
 
+func TestTransferOwnershipToNonMember(t *testing.T) {
+	requireDB(t)
+	ownerID, ownerToken := setupTestUser(t)
+	householdID := setupTestHousehold(t, ownerID)
+
+	nonMemberID, _ := setupTestUser(t)
+	defer cleanupTestData(t, ownerID)
+	defer cleanupTestData(t, nonMemberID)
+
+	body, _ := json.Marshal(map[string]string{"new_owner_user_id": nonMemberID})
+	req := httptest.NewRequest("POST", "/api/households/"+householdID+"/transfer-ownership", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+ownerToken)
+
+	w := httptest.NewRecorder()
+	householdSubrouteHandler(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("Expected status 404, got %d", w.Code)
+	}
+}
+
+func TestTransferOwnershipToSelf(t *testing.T) {
+	requireDB(t)
+	ownerID, ownerToken := setupTestUser(t)
+	householdID := setupTestHousehold(t, ownerID)
+	defer cleanupTestData(t, ownerID)
+
+	body, _ := json.Marshal(map[string]string{"new_owner_user_id": ownerID})
+	req := httptest.NewRequest("POST", "/api/households/"+householdID+"/transfer-ownership", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+ownerToken)
+
+	w := httptest.NewRecorder()
+	householdSubrouteHandler(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("Expected status 400, got %d", w.Code)
+	}
+}
+
 func TestListHouseholdMembers(t *testing.T) {
 	requireDB(t)
 	ownerID, ownerToken := setupTestUser(t)
