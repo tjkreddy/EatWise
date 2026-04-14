@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -568,6 +569,14 @@ func TestPantryUnauthorizedWithoutHousehold(t *testing.T) {
 	if w.Code != http.StatusForbidden {
 		t.Errorf("Expected status 403, got %d", w.Code)
 	}
+
+	var errResp map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+		t.Fatalf("Expected JSON error response, got parse error: %v", err)
+	}
+	if errResp["code"] != "FORBIDDEN" {
+		t.Fatalf("Expected error code FORBIDDEN, got %q", errResp["code"])
+	}
 }
 
 func TestPantryCRUD(t *testing.T) {
@@ -679,5 +688,198 @@ func TestClearPurchasedShoppingItems(t *testing.T) {
 	}
 	if remaining != 1 {
 		t.Fatalf("Expected 1 remaining item, got %d", remaining)
+	}
+}
+
+func TestPantryUpdateAllFieldsAndValidation(t *testing.T) {
+	requireDB(t)
+	userID, token := setupTestUser(t)
+	householdID := setupTestHousehold(t, userID)
+	defer cleanupTestData(t, userID)
+
+	var itemID int
+	err := db.QueryRow(`
+		INSERT INTO pantry_items (household_id, user_id, name, quantity, unit, category, notes)
+		VALUES ($1, $2, 'Old Name', 1, 'pcs', 'OldCat', 'Old Notes')
+		RETURNING id
+	`, householdID, userID).Scan(&itemID)
+	if err != nil {
+		t.Fatalf("Failed to seed pantry item: %v", err)
+	}
+
+	updateReq := map[string]interface{}{
+		"name":            "Updated Item",
+		"quantity":        4,
+		"unit":            "kg",
+		"category":        "Produce",
+		"expiration_date": "2026-12-31",
+		"notes":           "Fresh",
+	}
+	body, _ := json.Marshal(updateReq)
+	req := httptest.NewRequest("PUT", "/api/pantry/items/"+strconv.Itoa(itemID), bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	w := httptest.NewRecorder()
+	updatePantryHandler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", w.Code)
+	}
+
+	var updated PantryItem
+	if err := json.Unmarshal(w.Body.Bytes(), &updated); err != nil {
+		t.Fatalf("Failed to parse updated item: %v", err)
+	}
+
+	if updated.Name != "Updated Item" || updated.Quantity != 4 || updated.Unit != "kg" || updated.Category != "Produce" || updated.Notes != "Fresh" || updated.ExpirationDate != "2026-12-31" {
+		t.Fatalf("Unexpected updated pantry item: %+v", updated)
+	}
+
+	badReq := map[string]interface{}{"quantity": -5}
+	badBody, _ := json.Marshal(badReq)
+	badUpdate := httptest.NewRequest("PUT", "/api/pantry/items/"+strconv.Itoa(itemID), bytes.NewReader(badBody))
+	badUpdate.Header.Set("Content-Type", "application/json")
+	badUpdate.Header.Set("Authorization", "Bearer "+token)
+
+	badRes := httptest.NewRecorder()
+	updatePantryHandler(badRes, badUpdate)
+
+	if badRes.Code != http.StatusBadRequest {
+		t.Fatalf("Expected status 400 for negative quantity, got %d", badRes.Code)
+	}
+}
+
+func TestPantryDeleteCrossHouseholdNotFound(t *testing.T) {
+	requireDB(t)
+	ownerID, _ := setupTestUser(t)
+	householdID := setupTestHousehold(t, ownerID)
+	defer cleanupTestData(t, ownerID)
+
+	otherUserID, otherToken := setupTestUser(t)
+	setupTestHousehold(t, otherUserID)
+	defer cleanupTestData(t, otherUserID)
+
+	var itemID int
+	err := db.QueryRow(`
+		INSERT INTO pantry_items (household_id, user_id, name, quantity)
+		VALUES ($1, $2, 'Only In Household One', 1)
+		RETURNING id
+	`, householdID, ownerID).Scan(&itemID)
+	if err != nil {
+		t.Fatalf("Failed to seed pantry item: %v", err)
+	}
+
+	req := httptest.NewRequest("DELETE", "/api/pantry/items/"+strconv.Itoa(itemID), nil)
+	req.Header.Set("Authorization", "Bearer "+otherToken)
+
+	w := httptest.NewRecorder()
+	deletePantryHandler(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("Expected status 404 for cross-household delete, got %d", w.Code)
+	}
+}
+
+func TestShoppingUpdateAllFieldsAndPurchasedToggle(t *testing.T) {
+	requireDB(t)
+	userID, token := setupTestUser(t)
+	householdID := setupTestHousehold(t, userID)
+	defer cleanupTestData(t, userID)
+
+	var itemID int
+	err := db.QueryRow(`
+		INSERT INTO shopping_list (household_id, user_id, name, quantity, unit, category, purchased)
+		VALUES ($1, $2, 'Rice', 1, 'bag', 'Groceries', false)
+		RETURNING id
+	`, householdID, userID).Scan(&itemID)
+	if err != nil {
+		t.Fatalf("Failed to seed shopping item: %v", err)
+	}
+
+	updateReq := map[string]interface{}{
+		"name":      "Brown Rice",
+		"quantity":  2,
+		"unit":      "bags",
+		"category":  "Pantry",
+		"purchased": true,
+	}
+	body, _ := json.Marshal(updateReq)
+	req := httptest.NewRequest("PUT", "/api/shopping-list/"+strconv.Itoa(itemID), bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	w := httptest.NewRecorder()
+	updateShoppingItemHandler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", w.Code)
+	}
+
+	var updated ShoppingItem
+	if err := json.Unmarshal(w.Body.Bytes(), &updated); err != nil {
+		t.Fatalf("Failed to parse updated shopping item: %v", err)
+	}
+
+	if updated.Name != "Brown Rice" || updated.Quantity != 2 || updated.Unit != "bags" || updated.Category != "Pantry" || !updated.Purchased || updated.PurchasedAt == nil {
+		t.Fatalf("Unexpected shopping update result: %+v", updated)
+	}
+
+	unpurchaseReq := map[string]interface{}{"purchased": false}
+	unpurchaseBody, _ := json.Marshal(unpurchaseReq)
+	unpurchase := httptest.NewRequest("PUT", "/api/shopping-list/"+strconv.Itoa(itemID), bytes.NewReader(unpurchaseBody))
+	unpurchase.Header.Set("Content-Type", "application/json")
+	unpurchase.Header.Set("Authorization", "Bearer "+token)
+
+	unpurchaseRes := httptest.NewRecorder()
+	updateShoppingItemHandler(unpurchaseRes, unpurchase)
+
+	if unpurchaseRes.Code != http.StatusOK {
+		t.Fatalf("Expected status 200 for unpurchase, got %d", unpurchaseRes.Code)
+	}
+
+	var unpurchased ShoppingItem
+	if err := json.Unmarshal(unpurchaseRes.Body.Bytes(), &unpurchased); err != nil {
+		t.Fatalf("Failed to parse unpurchase response: %v", err)
+	}
+
+	if unpurchased.Purchased {
+		t.Fatal("Expected purchased=false after unpurchase")
+	}
+}
+
+func TestShoppingUpdateInvalidBodyErrorContract(t *testing.T) {
+	requireDB(t)
+	userID, token := setupTestUser(t)
+	householdID := setupTestHousehold(t, userID)
+	defer cleanupTestData(t, userID)
+
+	var itemID int
+	err := db.QueryRow(`
+		INSERT INTO shopping_list (household_id, user_id, name, quantity, unit, category, purchased)
+		VALUES ($1, $2, 'Eggs', 12, 'count', 'Dairy', false)
+		RETURNING id
+	`, householdID, userID).Scan(&itemID)
+	if err != nil {
+		t.Fatalf("Failed to seed shopping item: %v", err)
+	}
+
+	req := httptest.NewRequest("PUT", "/api/shopping-list/"+strconv.Itoa(itemID), strings.NewReader("not-json"))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	w := httptest.NewRecorder()
+	updateShoppingItemHandler(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("Expected status 400, got %d", w.Code)
+	}
+
+	var errResp map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+		t.Fatalf("Expected JSON error response, got parse error: %v", err)
+	}
+	if errResp["code"] != "INVALID_REQUEST" {
+		t.Fatalf("Expected error code INVALID_REQUEST, got %q", errResp["code"])
 	}
 }
