@@ -451,6 +451,24 @@ func TestTransferOwnershipToSelf(t *testing.T) {
 	}
 }
 
+func TestTransferOwnershipInvalidBody(t *testing.T) {
+	requireDB(t)
+	ownerID, ownerToken := setupTestUser(t)
+	householdID := setupTestHousehold(t, ownerID)
+	defer cleanupTestData(t, ownerID)
+
+	req := httptest.NewRequest("POST", "/api/households/"+householdID+"/transfer-ownership", strings.NewReader("not-json"))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+ownerToken)
+
+	w := httptest.NewRecorder()
+	householdSubrouteHandler(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("Expected status 400, got %d", w.Code)
+	}
+}
+
 func TestListHouseholdMembers(t *testing.T) {
 	requireDB(t)
 	ownerID, ownerToken := setupTestUser(t)
