@@ -225,6 +225,21 @@ Example request:
 
 - create household for authenticated user as owner.
 
+Example response:
+
+```json
+{
+  "household": {
+    "id": "a1b2c3d4-0000-0000-0000-000000000000",
+    "name": "Family Home",
+    "invite_code": "AB12CD",
+    "created_by": "b1c2d3e4-0000-0000-0000-000000000000",
+    "created_at": "2026-04-13T10:30:00Z"
+  },
+  "invite_code": "AB12CD"
+}
+```
+
 2. `DELETE /api/households`
 
 - delete current household (owner only).
@@ -238,6 +253,21 @@ Example request:
 ```json
 {
   "invite_code": "AB12CD"
+}
+```
+
+Example response:
+
+```json
+{
+  "message": "joined",
+  "household": {
+    "id": "a1b2c3d4-0000-0000-0000-000000000000",
+    "name": "Family Home",
+    "invite_code": "AB12CD",
+    "created_by": "b1c2d3e4-0000-0000-0000-000000000000",
+    "created_at": "2026-04-13T10:30:00Z"
+  }
 }
 ```
 
@@ -296,6 +326,34 @@ Example response:
   "pending_count": 3
 }
 ```
+
+10. `POST /api/households/{householdId}/transfer-ownership`
+
+- transfer household ownership from current owner to another existing household member.
+- requester must be current owner.
+
+Example request:
+
+```json
+{
+  "new_owner_user_id": "c1d2e3f4-0000-0000-0000-000000000000"
+}
+```
+
+Example response:
+
+```json
+{
+  "message": "ownership transferred",
+  "new_owner_user_id": "c1d2e3f4-0000-0000-0000-000000000000"
+}
+```
+
+- common status codes for this endpoint:
+  - `200` ownership transferred
+  - `400` invalid request (missing or same `new_owner_user_id`)
+  - `403` requester is not household owner
+  - `404` target user is not a member of the household
 
 ### 4.4 Pantry Endpoints
 
