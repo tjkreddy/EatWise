@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"math/big"
 	"net/http"
 	"os"
@@ -1494,7 +1495,16 @@ func addShoppingItemHandler(w http.ResponseWriter, r *http.Request) {
 	name = strings.TrimSpace(name)
 
 	quantity := 1
-	if q, ok := req["quantity"].(float64); ok {
+	if rawQuantity, exists := req["quantity"]; exists {
+		q, ok := rawQuantity.(float64)
+		if !ok {
+			respondError(w, http.StatusBadRequest, "Quantity must be an integer", "VALIDATION_ERROR")
+			return
+		}
+		if q != math.Trunc(q) {
+			respondError(w, http.StatusBadRequest, "Quantity must be an integer", "VALIDATION_ERROR")
+			return
+		}
 		quantity = int(q)
 	}
 	if quantity < 0 {
