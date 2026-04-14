@@ -15,7 +15,7 @@ describe("Simple EatWise Tests", () => {
     cy.visit("http://localhost:5173");
     cy.contains("Sign Up").first().click();
     cy.url().should("include", "/signup");
-    cy.contains("Create your EatWise account").should("be.visible");
+    cy.contains("Sign Up for EatWise").should("be.visible");
   });
 
   it("should fill and submit a form with email and password", () => {

@@ -18,8 +18,13 @@ const ManageHouseholdPage: React.FC = () => {
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [memberSearch, setMemberSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [selectedTransferUserId, setSelectedTransferUserId] = useState<string | null>(null);
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [transferError, setTransferError] = useState<string | null>(null);
+  const [transferSuccess, setTransferSuccess] = useState<string | null>(null);
 
-  const user = authAPI.getUser();
+  const [user] = useState(() => authAPI.getUser());
 
   const loadHousehold = useCallback(
     async (showInitialLoader = false) => {
@@ -52,7 +57,7 @@ const ManageHouseholdPage: React.FC = () => {
         setRefreshing(false);
       }
     },
-    [navigate, user],
+    [navigate, user?.id],
   );
 
   useEffect(() => {
@@ -78,6 +83,11 @@ const ManageHouseholdPage: React.FC = () => {
     () => members.filter((member) => member.role !== "owner").length,
     [members],
   );
+
+  const transferCandidates = useMemo(() => {
+    if (!user) return [];
+    return members.filter((member) => member.user_id !== user.id);
+  }, [members, user]);
 
   const filteredMembers = useMemo(() => {
     const query = memberSearch.trim().toLowerCase();
@@ -156,6 +166,44 @@ const ManageHouseholdPage: React.FC = () => {
       setError(err instanceof Error ? err.message : "Failed to remove member");
     } finally {
       setRemovingMemberId(null);
+    }
+  };
+
+  const handleOpenTransferModal = () => {
+    setTransferError(null);
+    setTransferSuccess(null);
+    setSelectedTransferUserId(transferCandidates[0]?.user_id ?? null);
+    setShowTransferModal(true);
+  };
+
+  const handleCloseTransferModal = () => {
+    setShowTransferModal(false);
+    setSelectedTransferUserId(null);
+    setTransferError(null);
+  };
+
+  const handleConfirmTransfer = async () => {
+    if (!household || !selectedTransferUserId) {
+      setTransferError("Please select a household member to transfer ownership to.");
+      return;
+    }
+
+    setTransferLoading(true);
+    setTransferError(null);
+    try {
+      const response = await householdAPI.transferOwnership(
+        household.id,
+        selectedTransferUserId,
+      );
+      setTransferSuccess(response.message || "Ownership transferred successfully.");
+      setShowTransferModal(false);
+      await loadHousehold(false);
+    } catch (err) {
+      setTransferError(
+        err instanceof Error ? err.message : "Failed to transfer ownership",
+      );
+    } finally {
+      setTransferLoading(false);
     }
   };
 
@@ -251,6 +299,29 @@ const ManageHouseholdPage: React.FC = () => {
                   Copy Invite Code
                 </button>
               </div>
+
+              {transferSuccess && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded text-green-700 text-sm">
+                  {transferSuccess}
+                </div>
+              )}
+
+              {currentRole === "owner" && (
+                <div className="flex flex-col gap-3 mb-4">
+                  {transferCandidates.length > 0 ? (
+                    <button
+                      onClick={handleOpenTransferModal}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium"
+                    >
+                      Transfer Ownership
+                    </button>
+                  ) : (
+                    <div className="text-sm text-gray-600">
+                      Add members before transferring ownership.
+                    </div>
+                  )}
+                </div>
+              )}
 
               {currentRole === "owner" ? (
                 <button
@@ -349,6 +420,72 @@ const ManageHouseholdPage: React.FC = () => {
                 )}
               </div>
             </div>
+
+            {showTransferModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+                <div className="w-full max-w-lg bg-white rounded-lg shadow-xl p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-gray-900">
+                      Transfer Ownership
+                    </h2>
+                    <button
+                      onClick={handleCloseTransferModal}
+                      className="text-gray-500 hover:text-gray-900"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Select a household member to become the new owner.
+                  </p>
+                  <div className="space-y-4">
+                    <div>
+                      <label
+                        htmlFor="newOwner"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        New Owner
+                      </label>
+                      <select
+                        id="newOwner"
+                        value={selectedTransferUserId ?? ""}
+                        onChange={(e) => setSelectedTransferUserId(e.target.value)}
+                        className="mt-1 block w-full rounded-md border-gray-300 bg-white px-3 py-2 shadow-sm focus:border-amber-500 focus:ring-amber-500"
+                      >
+                        <option value="" disabled>
+                          Select member
+                        </option>
+                        {transferCandidates.map((member) => (
+                          <option key={member.user_id} value={member.user_id}>
+                            {member.full_name || member.email} ({member.role})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {transferError && (
+                      <div className="text-sm text-red-600">
+                        {transferError}
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-6 flex flex-wrap gap-2 justify-end">
+                    <button
+                      onClick={handleCloseTransferModal}
+                      className="px-4 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleConfirmTransfer}
+                      disabled={transferLoading}
+                      className="px-4 py-2 rounded bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
+                    >
+                      {transferLoading ? "Transferring..." : "Confirm Transfer"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
       </main>

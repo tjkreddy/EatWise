@@ -96,8 +96,22 @@ type CreateHouseholdRequest struct {
 	Name string `json:"name"`
 }
 
+type CreateHouseholdResponse struct {
+	Household  Household `json:"household"`
+	InviteCode string    `json:"invite_code"`
+}
+
 type JoinHouseholdRequest struct {
 	InviteCode string `json:"invite_code"`
+}
+
+type JoinHouseholdResponse struct {
+	Message   string    `json:"message"`
+	Household Household `json:"household"`
+}
+
+type TransferOwnershipRequest struct {
+	NewOwnerUserID string `json:"new_owner_user_id"`
 }
 
 type HouseholdMeResponse struct {
@@ -515,12 +529,17 @@ func createHouseholdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusCreated, Household{
+	createdHousehold := Household{
 		ID:         householdID,
 		Name:       req.Name,
 		InviteCode: inviteCode,
 		CreatedBy:  userID,
 		CreatedAt:  createdAt,
+	}
+
+	respondJSON(w, http.StatusCreated, CreateHouseholdResponse{
+		Household:  createdHousehold,
+		InviteCode: inviteCode,
 	})
 }
 
@@ -651,9 +670,20 @@ func joinHouseholdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]string{
-		"message":      "joined",
-		"household_id": householdID,
+	var joined Household
+	err = db.QueryRow(`
+		SELECT id, name, invite_code, created_by, created_at
+		FROM households
+		WHERE id = $1
+	`, householdID).Scan(&joined.ID, &joined.Name, &joined.InviteCode, &joined.CreatedBy, &joined.CreatedAt)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to fetch household", "INTERNAL_ERROR")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, JoinHouseholdResponse{
+		Message:   "joined",
+		Household: joined,
 	})
 }
 
@@ -1160,7 +1190,7 @@ func removeMemberHandler(w http.ResponseWriter, r *http.Request, userID string, 
 		return
 	}
 
-	// Cannot remove self if owner (unless transfer ownership, but not implemented)
+	// Cannot remove self as owner; ownership must be transferred first.
 	if userID == userIDToRemove {
 		http.Error(w, "Cannot remove yourself as owner", http.StatusBadRequest)
 		return
@@ -1184,6 +1214,83 @@ func removeMemberHandler(w http.ResponseWriter, r *http.Request, userID string, 
 	respondJSON(w, http.StatusOK, map[string]string{"message": "member removed"})
 }
 
+// POST /api/households/:id/transfer-ownership
+func transferHouseholdOwnershipHandler(w http.ResponseWriter, r *http.Request, userID string, householdID string) {
+	err := checkHouseholdOwner(userID, householdID)
+	if err != nil {
+		respondError(w, http.StatusForbidden, "Forbidden: "+err.Error(), "FORBIDDEN")
+		return
+	}
+
+	var req TransferOwnershipRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request body", "INVALID_REQUEST")
+		return
+	}
+
+	req.NewOwnerUserID = strings.TrimSpace(req.NewOwnerUserID)
+	if req.NewOwnerUserID == "" {
+		respondError(w, http.StatusBadRequest, "new_owner_user_id is required", "VALIDATION_ERROR")
+		return
+	}
+	if req.NewOwnerUserID == userID {
+		respondError(w, http.StatusBadRequest, "new owner must be different from current owner", "VALIDATION_ERROR")
+		return
+	}
+
+	if err := checkHouseholdMembership(req.NewOwnerUserID, householdID); err != nil {
+		respondError(w, http.StatusNotFound, "new owner is not a household member", "NOT_FOUND")
+		return
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to start transaction", "INTERNAL_ERROR")
+		return
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`
+		UPDATE household_members
+		SET role = 'member'
+		WHERE household_id = $1 AND user_id = $2
+	`, householdID, userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to update current owner role", "INTERNAL_ERROR")
+		return
+	}
+
+	_, err = tx.Exec(`
+		UPDATE household_members
+		SET role = 'owner'
+		WHERE household_id = $1 AND user_id = $2
+	`, householdID, req.NewOwnerUserID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to update new owner role", "INTERNAL_ERROR")
+		return
+	}
+
+	_, err = tx.Exec(`
+		UPDATE households
+		SET created_by = $1, updated_at = NOW()
+		WHERE id = $2
+	`, req.NewOwnerUserID, householdID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to update household owner", "INTERNAL_ERROR")
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to commit transaction", "INTERNAL_ERROR")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{
+		"message":           "ownership transferred",
+		"new_owner_user_id": req.NewOwnerUserID,
+	})
+}
+
 // GET /api/households/:id/members
 func listMembersSubrouteHandler(w http.ResponseWriter, r *http.Request, userID string, householdID string) {
 	allowed, err := isUserHouseholdMember(userID, householdID)
@@ -1205,9 +1312,9 @@ func listMembersSubrouteHandler(w http.ResponseWriter, r *http.Request, userID s
 	respondJSON(w, http.StatusOK, members)
 }
 
-// GET or DELETE /api/households/:id and subroutes
+// GET, POST or DELETE /api/households/:id and subroutes
 func householdSubrouteHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete && r.Method != http.MethodGet {
+	if r.Method != http.MethodDelete && r.Method != http.MethodGet && r.Method != http.MethodPost {
 		respondError(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
 		return
 	}
@@ -1237,6 +1344,15 @@ func householdSubrouteHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		listMembersSubrouteHandler(w, r, userID, householdID)
+		return
+	}
+
+	if r.Method == http.MethodPost {
+		if len(parts) == 2 && parts[1] == "transfer-ownership" {
+			transferHouseholdOwnershipHandler(w, r, userID, householdID)
+			return
+		}
+		respondError(w, http.StatusBadRequest, "Invalid household route", "INVALID_REQUEST")
 		return
 	}
 

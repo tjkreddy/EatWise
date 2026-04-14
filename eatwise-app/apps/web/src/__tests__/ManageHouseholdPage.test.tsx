@@ -19,6 +19,7 @@ vi.mock("../lib/householdAPI", () => ({
     leaveHousehold: vi.fn(),
     deleteHousehold: vi.fn(),
     removeMember: vi.fn(),
+    transferOwnership: vi.fn(),
   },
 }));
 
@@ -233,5 +234,274 @@ describe("ManageHouseholdPage", () => {
     expect(
       householdAPIModule.householdAPI.getMyHousehold,
     ).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows transfer ownership modal and transfers ownership", async () => {
+    const getMyHousehold = vi.mocked(
+      householdAPIModule.householdAPI.getMyHousehold,
+    );
+
+    getMyHousehold
+      .mockResolvedValueOnce({
+        household: {
+          id: "house-1",
+          name: "Test Household",
+          invite_code: "ABC123",
+        },
+        members: [
+          {
+            user_id: "owner-1",
+            email: "owner@example.com",
+            role: "owner",
+            full_name: "Owner One",
+          },
+          {
+            user_id: "member-1",
+            email: "member@example.com",
+            role: "member",
+            full_name: "Member One",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        household: {
+          id: "house-1",
+          name: "Test Household",
+          invite_code: "ABC123",
+        },
+        members: [
+          {
+            user_id: "owner-1",
+            email: "owner@example.com",
+            role: "member",
+            full_name: "Owner One",
+          },
+          {
+            user_id: "member-1",
+            email: "member@example.com",
+            role: "owner",
+            full_name: "Member One",
+          },
+        ],
+      });
+
+    vi.mocked(authAPIModule.authAPI.getUser).mockReturnValue({
+      id: "owner-1",
+      email: "owner@example.com",
+    } as any);
+
+    vi.mocked(
+      householdAPIModule.householdAPI.transferOwnership,
+    ).mockResolvedValue({
+      message: "Ownership transferred successfully",
+    });
+
+    render(
+      <BrowserRouter>
+        <ManageHouseholdPage />
+      </BrowserRouter>,
+    );
+
+    const transferButton = await screen.findByRole("button", {
+      name: "Transfer Ownership",
+    });
+    fireEvent.click(transferButton);
+
+    const select = await screen.findByLabelText("New Owner");
+    fireEvent.change(select, { target: { value: "member-1" } });
+
+    const confirmButton = screen.getByRole("button", {
+      name: "Confirm Transfer",
+    });
+    fireEvent.click(confirmButton);
+
+    await waitFor(() => {
+      expect(
+        householdAPIModule.householdAPI.transferOwnership,
+      ).toHaveBeenCalledWith("house-1", "member-1");
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: "Transfer Ownership" }),
+      ).toBeNull();
+    });
+  });
+
+  it("does not show transfer ownership button for non-owner users", async () => {
+    vi.mocked(authAPIModule.authAPI.getUser).mockReturnValue({
+      id: "member-1",
+      email: "member@example.com",
+    } as any);
+
+    vi.mocked(householdAPIModule.householdAPI.getMyHousehold).mockResolvedValue({
+      household: {
+        id: "house-1",
+        name: "Test Household",
+        invite_code: "ABC123",
+      },
+      members: [
+        {
+          user_id: "owner-1",
+          email: "owner@example.com",
+          role: "owner",
+        },
+        {
+          user_id: "member-1",
+          email: "member@example.com",
+          role: "member",
+        },
+      ],
+    });
+
+    render(
+      <BrowserRouter>
+        <ManageHouseholdPage />
+      </BrowserRouter>,
+    );
+
+    await screen.findByText("Members");
+    expect(
+      screen.queryByRole("button", { name: "Transfer Ownership" }),
+    ).toBeNull();
+  });
+
+  it("shows empty transfer state when owner has no other members", async () => {
+    vi.mocked(authAPIModule.authAPI.getUser).mockReturnValue({
+      id: "owner-1",
+      email: "owner@example.com",
+    } as any);
+
+    vi.mocked(householdAPIModule.householdAPI.getMyHousehold).mockResolvedValue({
+      household: {
+        id: "house-1",
+        name: "Test Household",
+        invite_code: "ABC123",
+      },
+      members: [
+        {
+          user_id: "owner-1",
+          email: "owner@example.com",
+          role: "owner",
+        },
+      ],
+    });
+
+    render(
+      <BrowserRouter>
+        <ManageHouseholdPage />
+      </BrowserRouter>,
+    );
+
+    await screen.findByText("Add members before transferring ownership.");
+    expect(
+      screen.queryByRole("button", { name: "Transfer Ownership" }),
+    ).toBeNull();
+  });
+
+  it("shows transfer error and keeps modal open when API fails", async () => {
+    const getMyHousehold = vi.mocked(
+      householdAPIModule.householdAPI.getMyHousehold,
+    );
+
+    getMyHousehold.mockResolvedValue({
+      household: {
+        id: "house-1",
+        name: "Test Household",
+        invite_code: "ABC123",
+      },
+      members: [
+        {
+          user_id: "owner-1",
+          email: "owner@example.com",
+          role: "owner",
+          full_name: "Owner One",
+        },
+        {
+          user_id: "member-1",
+          email: "member@example.com",
+          role: "member",
+          full_name: "Member One",
+        },
+      ],
+    });
+
+    vi.mocked(householdAPIModule.householdAPI.transferOwnership).mockRejectedValue(
+      new Error("Transfer failed"),
+    );
+
+    vi.mocked(authAPIModule.authAPI.getUser).mockReturnValue({
+      id: "owner-1",
+      email: "owner@example.com",
+    } as any);
+
+    render(
+      <BrowserRouter>
+        <ManageHouseholdPage />
+      </BrowserRouter>,
+    );
+
+    const transferButton = await screen.findByRole("button", {
+      name: "Transfer Ownership",
+    });
+    fireEvent.click(transferButton);
+
+    const select = await screen.findByLabelText("New Owner");
+    fireEvent.change(select, { target: { value: "member-1" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirm Transfer" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Transfer failed")).toBeDefined();
+      expect(screen.getByRole("button", { name: "Confirm Transfer" })).toBeDefined();
+    });
+  });
+
+  it("closes transfer modal when cancel is clicked", async () => {
+    vi.mocked(authAPIModule.authAPI.getUser).mockReturnValue({
+      id: "owner-1",
+      email: "owner@example.com",
+    } as any);
+
+    vi.mocked(householdAPIModule.householdAPI.getMyHousehold).mockResolvedValue({
+      household: {
+        id: "house-1",
+        name: "Test Household",
+        invite_code: "ABC123",
+      },
+      members: [
+        {
+          user_id: "owner-1",
+          email: "owner@example.com",
+          role: "owner",
+          full_name: "Owner One",
+        },
+        {
+          user_id: "member-1",
+          email: "member@example.com",
+          role: "member",
+          full_name: "Member One",
+        },
+      ],
+    });
+
+    render(
+      <BrowserRouter>
+        <ManageHouseholdPage />
+      </BrowserRouter>,
+    );
+
+    const transferButton = await screen.findByRole("button", {
+      name: "Transfer Ownership",
+    });
+    fireEvent.click(transferButton);
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: "Confirm Transfer" }),
+      ).toBeNull();
+    });
   });
 });

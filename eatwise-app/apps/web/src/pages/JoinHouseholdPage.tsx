@@ -56,7 +56,7 @@ const JoinHouseholdPage: React.FC = () => {
     setLoading(true);
     try {
       const resp = await householdAPI.joinHousehold(inviteCode.trim());
-      setSuccess(`Joined household ${resp.household.name} successfully.`);
+      setSuccess(resp.message || `Joined household ${resp.household.name} successfully.`);
       setError(""); // Clear any errors
       // Auto-navigate after showing success
       setTimeout(() => navigate("/dashboard"), 1500);

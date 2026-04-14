@@ -13,6 +13,7 @@ const PantryList: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<PantryItem[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingItem, setEditingItem] = useState<PantryItem | null>(null);
 
   useEffect(() => {
     const userData = authAPI.getUser();
@@ -159,6 +160,78 @@ const PantryList: React.FC = () => {
     }
   };
 
+  const handleUpdateItem = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingItem) return;
+
+    const formData = new FormData(e.currentTarget);
+    const updatedItem = {
+      name: formData.get("name") as string,
+      quantity: parseInt(formData.get("quantity") as string),
+      unit: formData.get("unit") as string,
+      category: formData.get("category") as string,
+      expirationDate: (formData.get("expirationDate") as string) || undefined,
+      notes: (formData.get("notes") as string) || undefined,
+    };
+
+    if (!updatedItem.name?.trim()) {
+      setError("Name is required");
+      return;
+    }
+
+    if (Number.isNaN(updatedItem.quantity)) {
+      setError("Quantity is required");
+      return;
+    }
+
+    try {
+      setError(null);
+      const token = authAPI.getToken();
+      const response = await fetch(`${API_BASE_URL}/api/pantry/items/${editingItem.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: updatedItem.name,
+          quantity: updatedItem.quantity,
+          unit: updatedItem.unit,
+          category: updatedItem.category,
+          expiration_date: updatedItem.expirationDate || "",
+          notes: updatedItem.notes,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to update item");
+      }
+
+      const saved = await response.json();
+      setItems((prev) => prev.map((item) =>
+        item.id === editingItem.id
+          ? {
+              id: saved.id,
+              name: saved.name,
+              quantity: saved.quantity,
+              unit: saved.unit,
+              category: saved.category,
+              expirationDate: saved.expiration_date || saved.expirationDate,
+              addedDate: saved.created_at
+                ? String(saved.created_at).split("T")[0]
+                : item.addedDate,
+              notes: saved.notes,
+            }
+          : item
+      ));
+
+      setEditingItem(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update item");
+    }
+  };
+
   const handleLogout = () => {
     authAPI.logout();
     navigate("/login");
@@ -292,33 +365,157 @@ const PantryList: React.FC = () => {
           </form>
         )}
 
-        <div className="space-y-3">
-          {filteredItems.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center justify-between p-4 border border-gray-200 rounded"
-            >
-              <div>
-                <div className="font-semibold text-gray-900">{item.name}</div>
-                <div className="text-sm text-gray-600">
-                  {item.quantity} {item.unit || "units"}
-                  {item.category ? ` • ${item.category}` : ""}
-                  {item.expirationDate
-                    ? ` • Expires ${item.expirationDate}`
-                    : ""}
-                </div>
-              </div>
-              <button
-                onClick={() => handleDelete(item.id)}
-                className="text-red-600 hover:text-red-700 font-semibold"
+        {editingItem && (
+          <form
+            onSubmit={handleUpdateItem}
+            className="mb-6 p-5 border border-blue-200 rounded bg-blue-50"
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Edit Item: {editingItem.name}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <input
+                name="name"
+                defaultValue={editingItem.name}
+                placeholder="Item name"
+                className="p-2 border rounded"
+                required
+              />
+              <input
+                name="quantity"
+                type="number"
+                defaultValue={editingItem.quantity}
+                placeholder="Quantity"
+                className="p-2 border rounded"
+                required
+              />
+              <select name="unit" className="p-2 border rounded" title="Unit" defaultValue={editingItem.unit || ""}>
+                <option value="">Select unit</option>
+                <option value="pieces">pieces</option>
+                <option value="grams">grams</option>
+                <option value="kg">kg</option>
+                <option value="ml">ml</option>
+                <option value="liters">liters</option>
+                <option value="cups">cups</option>
+                <option value="tbsp">tbsp</option>
+                <option value="tsp">tsp</option>
+                <option value="packets">packets</option>
+              </select>
+              <select
+                name="category"
+                className="p-2 border rounded"
+                title="Category"
+                defaultValue={editingItem.category || ""}
               >
-                Delete
+                <option value="">Select category</option>
+                <option value="Dairy">Dairy</option>
+                <option value="Vegetables">Vegetables</option>
+                <option value="Fruits">Fruits</option>
+                <option value="Meat">Meat</option>
+                <option value="Condiments">Condiments</option>
+                <option value="Snacks">Snacks</option>
+                <option value="Beverages">Beverages</option>
+                <option value="Frozen">Frozen</option>
+                <option value="Uncategorized">Uncategorized</option>
+              </select>
+              <input
+                name="expirationDate"
+                type="date"
+                defaultValue={editingItem.expirationDate}
+                title="Expiration date"
+                className="p-2 border rounded"
+              />
+              <input
+                name="notes"
+                defaultValue={editingItem.notes}
+                placeholder="Notes"
+                className="p-2 border rounded"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+              >
+                Update Item
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingItem(null)}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded"
+              >
+                Cancel
               </button>
             </div>
-          ))}
-          {filteredItems.length === 0 && (
-            <div className="p-8 text-center text-gray-600 border border-dashed rounded">
-              No pantry items yet.
+          </form>
+        )}
+
+        <div className="space-y-3">
+          {filteredItems.map((item) => {
+            const isExpired = item.expirationDate && new Date(item.expirationDate) < new Date();
+            const isExpiringSoon = item.expirationDate && !isExpired && 
+              (new Date(item.expirationDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24) <= 7;
+
+            return (
+              <div
+                key={item.id}
+                className={`flex items-center justify-between p-4 border border-gray-200 rounded-lg ${
+                  isExpired ? 'bg-red-50 border-red-200' : 
+                  isExpiringSoon ? 'bg-yellow-50 border-yellow-200' : 
+                  'bg-white'
+                }`}
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-semibold text-gray-900">{item.name}</span>
+                    {isExpired && (
+                      <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+                        EXPIRED
+                      </span>
+                    )}
+                    {isExpiringSoon && !isExpired && (
+                      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                        EXPIRING SOON
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <div>Quantity: {item.quantity} {item.unit || 'units'}</div>
+                    {item.category && <div>Category: {item.category}</div>}
+                    {item.expirationDate && (
+                      <div>Expires: {new Date(item.expirationDate).toLocaleDateString()}</div>
+                    )}
+                    {item.notes && <div>Notes: {item.notes}</div>}
+                  </div>
+                </div>
+                <div className="flex gap-2 ml-4">
+                  <button
+                    onClick={() => setEditingItem(item)}
+                    className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          {filteredItems.length === 0 && !error && (
+            <div className="p-8 text-center text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">
+              <div className="text-4xl mb-4">📦</div>
+              <div className="text-lg font-medium mb-2">No pantry items yet</div>
+              <div className="text-sm mb-4">Start by adding your first pantry item above</div>
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded font-medium"
+              >
+                Add Your First Item
+              </button>
             </div>
           )}
         </div>
