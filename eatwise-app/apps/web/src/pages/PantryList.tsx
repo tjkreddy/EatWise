@@ -12,6 +12,7 @@ const PantryList: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<PantryItem[]>([]);
+  const [showAddForm, setShowAddForm] = useState(false);
   const [editingItem, setEditingItem] = useState<PantryItem | null>(null);
 
   useEffect(() => {
