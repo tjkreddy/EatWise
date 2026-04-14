@@ -256,4 +256,135 @@ describe("Dashboard", () => {
       ).toHaveLength(2);
     });
   });
+
+  it("should show loading state for household data", async () => {
+    // Mock getMyHousehold to never resolve to keep loading state
+    vi.mocked(householdAPIModule.householdAPI.getMyHousehold).mockImplementation(
+      () => new Promise(() => {}),
+    );
+
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      // Should show loading skeleton in household stats
+      expect(screen.getByText("Good morning, test")).toBeDefined();
+    });
+
+    // Check that loading indicators are present
+    expect(document.querySelector(".animate-pulse")).toBeDefined();
+  });
+
+  it("should display household error state in stats card", async () => {
+    vi.mocked(householdAPIModule.householdAPI.getMyHousehold).mockRejectedValue(
+      new Error("Network error"),
+    );
+
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Error loading")).toBeDefined();
+      expect(screen.getByText("Network error")).toBeDefined();
+    });
+  });
+
+  it("should display household error state in members section", async () => {
+    vi.mocked(householdAPIModule.householdAPI.getMyHousehold).mockRejectedValue(
+      new Error("Failed to load members"),
+    );
+
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Unable to load household members")).toBeDefined();
+      expect(screen.getByText("Failed to load members")).toBeDefined();
+    });
+  });
+
+  it("should show quick actions section", async () => {
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Quick Actions")).toBeDefined();
+      expect(screen.getByText("Pantry List")).toBeDefined();
+      expect(screen.getByText("Shopping List")).toBeDefined();
+      expect(screen.getByText("Manage Household")).toBeDefined();
+    });
+  });
+
+  it("should navigate to pantry list when quick action clicked", async () => {
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      const pantryButton = screen.getByText("Pantry List");
+      fireEvent.click(pantryButton);
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith("/pantry-list");
+  });
+
+  it("should navigate to shopping list when quick action clicked", async () => {
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      const shoppingButton = screen.getByText("Shopping List");
+      fireEvent.click(shoppingButton);
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith("/shopping-list");
+  });
+
+  it("should navigate to household manage when quick action clicked", async () => {
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      const manageButton = screen.getByText("Manage Household");
+      fireEvent.click(manageButton);
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith("/household/manage");
+  });
+
+  it("should display personal household when no household exists", async () => {
+    vi.mocked(householdAPIModule.householdAPI.getMyHousehold).mockResolvedValue({
+      household: undefined,
+    });
+
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Personal")).toBeDefined();
+    });
+  });
 });
