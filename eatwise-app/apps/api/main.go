@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"math/big"
 	"net/http"
 	"os"
@@ -60,16 +61,16 @@ type PantryItem struct {
 }
 
 type ShoppingItem struct {
-	ID          int       `json:"id"`
-	HouseholdID string    `json:"household_id"`
-	UserID      string    `json:"user_id"`
-	Name        string    `json:"name"`
-	Quantity    int       `json:"quantity"`
-	Unit        string    `json:"unit,omitempty"`
-	Category    string    `json:"category,omitempty"`
-	Purchased   bool      `json:"purchased"`
+	ID          int        `json:"id"`
+	HouseholdID string     `json:"household_id"`
+	UserID      string     `json:"user_id"`
+	Name        string     `json:"name"`
+	Quantity    int        `json:"quantity"`
+	Unit        string     `json:"unit,omitempty"`
+	Category    string     `json:"category,omitempty"`
+	Purchased   bool       `json:"purchased"`
 	PurchasedAt *time.Time `json:"purchased_at,omitempty"`
-	CreatedAt   time.Time `json:"created_at,omitempty"`
+	CreatedAt   time.Time  `json:"created_at,omitempty"`
 }
 
 type Household struct {
@@ -88,7 +89,7 @@ type HouseholdMember struct {
 }
 
 type HouseholdResponse struct {
-	Household Household          `json:"household"`
+	Household Household         `json:"household"`
 	Members   []HouseholdMember `json:"members"`
 }
 
@@ -550,39 +551,39 @@ func deleteMyHouseholdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-		userID, err := getUserIDFromRequest(r)
-		if err != nil {
-			http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
-			return
-		}
-
-		householdID, err := getUserHouseholdID(userID)
-		if err != nil {
-			http.Error(w, "User not in household", http.StatusNotFound)
-			return
-		}
-
-		err = checkHouseholdOwner(userID, householdID)
-		if err != nil {
-			http.Error(w, "Forbidden: only owner can delete household", http.StatusForbidden)
-			return
-		}
-
-		result, err := db.Exec(`DELETE FROM households WHERE id = $1`, householdID)
-		if err != nil {
-			log.Printf("deleteMyHouseholdHandler delete error: %v", err)
-			http.Error(w, "Failed to delete household", http.StatusInternalServerError)
-			return
-		}
-
-		rowsAffected, err := result.RowsAffected()
-		if err != nil || rowsAffected == 0 {
-			http.Error(w, "Household not found", http.StatusNotFound)
-			return
-		}
-
-		respondJSON(w, http.StatusOK, map[string]string{"message": "household deleted"})
+	userID, err := getUserIDFromRequest(r)
+	if err != nil {
+		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		return
 	}
+
+	householdID, err := getUserHouseholdID(userID)
+	if err != nil {
+		http.Error(w, "User not in household", http.StatusNotFound)
+		return
+	}
+
+	err = checkHouseholdOwner(userID, householdID)
+	if err != nil {
+		http.Error(w, "Forbidden: only owner can delete household", http.StatusForbidden)
+		return
+	}
+
+	result, err := db.Exec(`DELETE FROM households WHERE id = $1`, householdID)
+	if err != nil {
+		log.Printf("deleteMyHouseholdHandler delete error: %v", err)
+		http.Error(w, "Failed to delete household", http.StatusInternalServerError)
+		return
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil || rowsAffected == 0 {
+		http.Error(w, "Household not found", http.StatusNotFound)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"message": "household deleted"})
+}
 
 // POST /api/households or DELETE /api/households
 func householdsRootHandler(w http.ResponseWriter, r *http.Request) {
@@ -826,23 +827,23 @@ func getHouseholdSummaryHandler(w http.ResponseWriter, r *http.Request) {
 // GET /api/pantry/items
 func fetchPantryHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
 		return
 	}
 	userID, err := getUserIDFromRequest(r)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		respondError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), "UNAUTHORIZED")
 		return
 	}
 	householdID, err := getUserHouseholdID(userID)
 	if err != nil {
-		http.Error(w, "User not in household: "+err.Error(), http.StatusForbidden)
+		respondError(w, http.StatusForbidden, "User not in household: "+err.Error(), "FORBIDDEN")
 		return
 	}
 	rows, err := db.Query(`SELECT id, household_id, user_id, name, quantity, unit, category, expiration_date, notes, created_at, updated_at FROM pantry_items WHERE household_id = $1 ORDER BY id`, householdID)
 	if err != nil {
 		log.Printf("fetchPantryHandler query error: %v", err)
-		http.Error(w, "Failed to fetch items", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to fetch items", "INTERNAL_ERROR")
 		return
 	}
 	defer rows.Close()
@@ -865,17 +866,17 @@ func fetchPantryHandler(w http.ResponseWriter, r *http.Request) {
 // POST /api/pantry/items
 func addPantryHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
 		return
 	}
 	userID, err := getUserIDFromRequest(r)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		respondError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), "UNAUTHORIZED")
 		return
 	}
 	householdID, err := getUserHouseholdID(userID)
 	if err != nil {
-		http.Error(w, "User not in household: "+err.Error(), http.StatusForbidden)
+		respondError(w, http.StatusForbidden, "User not in household: "+err.Error(), "FORBIDDEN")
 		return
 	}
 	var req struct {
@@ -887,22 +888,22 @@ func addPantryHandler(w http.ResponseWriter, r *http.Request) {
 		Notes    string `json:"notes,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, "Invalid request body", "INVALID_REQUEST")
 		return
 	}
 	if strings.TrimSpace(req.Name) == "" {
-		http.Error(w, "Name is required", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, "Name is required", "VALIDATION_ERROR")
 		return
 	}
 	if req.Quantity < 0 {
-		http.Error(w, "Quantity must be non-negative", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, "Quantity must be non-negative", "VALIDATION_ERROR")
 		return
 	}
 	var exp sql.NullTime
 	if req.ExpDate != "" {
 		t, err := time.Parse("2006-01-02", req.ExpDate)
 		if err != nil {
-			http.Error(w, "Invalid expiration_date format (use YYYY-MM-DD)", http.StatusBadRequest)
+			respondError(w, http.StatusBadRequest, "Invalid expiration_date format (use YYYY-MM-DD)", "VALIDATION_ERROR")
 			return
 		}
 		exp = sql.NullTime{Time: t, Valid: true}
@@ -913,7 +914,7 @@ func addPantryHandler(w http.ResponseWriter, r *http.Request) {
 	err = db.QueryRow(query, householdID, userID, req.Name, req.Quantity, req.Unit, req.Category, exp, req.Notes).Scan(&id, &createdAt, &updatedAt)
 	if err != nil {
 		log.Printf("addPantryHandler insert error: %v", err)
-		http.Error(w, "Failed to add item", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to add item", "INTERNAL_ERROR")
 		return
 	}
 	item := PantryItem{
@@ -937,22 +938,22 @@ func addPantryHandler(w http.ResponseWriter, r *http.Request) {
 // DELETE /api/pantry/items/{id}
 func deletePantryHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
 		return
 	}
 	userID, err := getUserIDFromRequest(r)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		respondError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), "UNAUTHORIZED")
 		return
 	}
 	householdID, err := getUserHouseholdID(userID)
 	if err != nil {
-		http.Error(w, "User not in household: "+err.Error(), http.StatusForbidden)
+		respondError(w, http.StatusForbidden, "User not in household: "+err.Error(), "FORBIDDEN")
 		return
 	}
 	id, err := parseIDFromPath("/api/pantry/items/", r)
 	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, "Invalid ID", "INVALID_REQUEST")
 		return
 	}
 	// Ensure item belongs to household
@@ -960,17 +961,17 @@ func deletePantryHandler(w http.ResponseWriter, r *http.Request) {
 	err = db.QueryRow(`SELECT EXISTS(SELECT 1 FROM pantry_items WHERE id=$1 AND household_id=$2)`, id, householdID).Scan(&exists)
 	if err != nil {
 		log.Printf("deletePantryHandler exists check error: %v", err)
-		http.Error(w, "Failed to delete item", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to delete item", "INTERNAL_ERROR")
 		return
 	}
 	if !exists {
-		http.Error(w, "Item not found", http.StatusNotFound)
+		respondError(w, http.StatusNotFound, "Item not found", "NOT_FOUND")
 		return
 	}
 	_, err = db.Exec(`DELETE FROM pantry_items WHERE id=$1 AND household_id=$2`, id, householdID)
 	if err != nil {
 		log.Printf("deletePantryHandler delete error: %v", err)
-		http.Error(w, "Failed to delete item", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to delete item", "INTERNAL_ERROR")
 		return
 	}
 	respondJSON(w, http.StatusOK, map[string]string{"message": "deleted"})
@@ -979,22 +980,22 @@ func deletePantryHandler(w http.ResponseWriter, r *http.Request) {
 // PUT /api/pantry/items/{id}
 func updatePantryHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
 		return
 	}
 	userID, err := getUserIDFromRequest(r)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		respondError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), "UNAUTHORIZED")
 		return
 	}
 	householdID, err := getUserHouseholdID(userID)
 	if err != nil {
-		http.Error(w, "User not in household: "+err.Error(), http.StatusForbidden)
+		respondError(w, http.StatusForbidden, "User not in household: "+err.Error(), "FORBIDDEN")
 		return
 	}
 	id, err := parseIDFromPath("/api/pantry/items/", r)
 	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, "Invalid ID", "INVALID_REQUEST")
 		return
 	}
 	var req struct {
@@ -1006,7 +1007,7 @@ func updatePantryHandler(w http.ResponseWriter, r *http.Request) {
 		Notes    *string `json:"notes,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, "Invalid request body", "INVALID_REQUEST")
 		return
 	}
 	// Check exists and belongs to household
@@ -1014,11 +1015,11 @@ func updatePantryHandler(w http.ResponseWriter, r *http.Request) {
 	err = db.QueryRow(`SELECT EXISTS(SELECT 1 FROM pantry_items WHERE id=$1 AND household_id=$2)`, id, householdID).Scan(&exists)
 	if err != nil {
 		log.Printf("updatePantryHandler exists check error: %v", err)
-		http.Error(w, "Failed to update item", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to update item", "INTERNAL_ERROR")
 		return
 	}
 	if !exists {
-		http.Error(w, "Item not found", http.StatusNotFound)
+		respondError(w, http.StatusNotFound, "Item not found", "NOT_FOUND")
 		return
 	}
 	// Build update dynamically
@@ -1027,7 +1028,7 @@ func updatePantryHandler(w http.ResponseWriter, r *http.Request) {
 	argPos := 1
 	if req.Name != nil {
 		if strings.TrimSpace(*req.Name) == "" {
-			http.Error(w, "Name cannot be empty", http.StatusBadRequest)
+			respondError(w, http.StatusBadRequest, "Name cannot be empty", "VALIDATION_ERROR")
 			return
 		}
 		sets = append(sets, fmt.Sprintf("name=$%d", argPos))
@@ -1036,7 +1037,7 @@ func updatePantryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Quantity != nil {
 		if *req.Quantity < 0 {
-			http.Error(w, "Quantity must be non-negative", http.StatusBadRequest)
+			respondError(w, http.StatusBadRequest, "Quantity must be non-negative", "VALIDATION_ERROR")
 			return
 		}
 		sets = append(sets, fmt.Sprintf("quantity=$%d", argPos))
@@ -1064,7 +1065,7 @@ func updatePantryHandler(w http.ResponseWriter, r *http.Request) {
 		} else {
 			t, err := time.Parse("2006-01-02", *req.ExpDate)
 			if err != nil {
-				http.Error(w, "Invalid expiration_date format (use YYYY-MM-DD)", http.StatusBadRequest)
+				respondError(w, http.StatusBadRequest, "Invalid expiration_date format (use YYYY-MM-DD)", "VALIDATION_ERROR")
 				return
 			}
 			sets = append(sets, fmt.Sprintf("expiration_date=$%d", argPos))
@@ -1073,7 +1074,7 @@ func updatePantryHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(sets) == 0 {
-		http.Error(w, "No fields to update", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, "No fields to update", "VALIDATION_ERROR")
 		return
 	}
 	// Append updated_at
@@ -1090,7 +1091,7 @@ func updatePantryHandler(w http.ResponseWriter, r *http.Request) {
 	row := db.QueryRow(query, args...)
 	if err := row.Scan(&it.ID, &it.HouseholdID, &it.UserID, &it.Name, &it.Quantity, &it.Unit, &it.Category, &exp, &it.Notes, &it.CreatedAt, &it.UpdatedAt); err != nil {
 		log.Printf("updatePantryHandler scan error: %v", err)
-		http.Error(w, "Failed to update item", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to update item", "INTERNAL_ERROR")
 		return
 	}
 	if exp.Valid {
@@ -1417,19 +1418,19 @@ func leaveHouseholdHandler(w http.ResponseWriter, r *http.Request) {
 // GET /api/shopping-list
 func getShoppingListHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
 		return
 	}
 
 	userID, err := getUserIDFromRequest(r)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		respondError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), "UNAUTHORIZED")
 		return
 	}
 
 	householdID, err := getUserHouseholdID(userID)
 	if err != nil {
-		http.Error(w, "User not in household: "+err.Error(), http.StatusNotFound)
+		respondError(w, http.StatusNotFound, "User not in household: "+err.Error(), "NOT_FOUND")
 		return
 	}
 
@@ -1441,7 +1442,7 @@ func getShoppingListHandler(w http.ResponseWriter, r *http.Request) {
 	`, householdID)
 	if err != nil {
 		log.Printf("getShoppingListHandler query error: %v", err)
-		http.Error(w, "Failed to fetch shopping items", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to fetch shopping items", "INTERNAL_ERROR")
 		return
 	}
 	defer rows.Close()
@@ -1449,7 +1450,7 @@ func getShoppingListHandler(w http.ResponseWriter, r *http.Request) {
 	items := []ShoppingItem{}
 	for rows.Next() {
 		var item ShoppingItem
-		err := rows.Scan(&item.ID, &item.HouseholdID, &item.UserID, &item.Name, &item.Quantity, 
+		err := rows.Scan(&item.ID, &item.HouseholdID, &item.UserID, &item.Name, &item.Quantity,
 			&item.Unit, &item.Category, &item.Purchased, &item.PurchasedAt, &item.CreatedAt)
 		if err != nil {
 			log.Printf("getShoppingListHandler scan error: %v", err)
@@ -1464,37 +1465,51 @@ func getShoppingListHandler(w http.ResponseWriter, r *http.Request) {
 // POST /api/shopping-list
 func addShoppingItemHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
 		return
 	}
 
 	userID, err := getUserIDFromRequest(r)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		respondError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), "UNAUTHORIZED")
 		return
 	}
 
 	householdID, err := getUserHouseholdID(userID)
 	if err != nil {
-		http.Error(w, "User not in household: "+err.Error(), http.StatusNotFound)
+		respondError(w, http.StatusNotFound, "User not in household: "+err.Error(), "NOT_FOUND")
 		return
 	}
 
 	var req map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, "Invalid request body", "INVALID_REQUEST")
 		return
 	}
 
 	name, ok := req["name"].(string)
-	if !ok || name == "" {
-		http.Error(w, "Name is required", http.StatusBadRequest)
+	if !ok || strings.TrimSpace(name) == "" {
+		respondError(w, http.StatusBadRequest, "Name is required", "VALIDATION_ERROR")
 		return
 	}
+	name = strings.TrimSpace(name)
 
 	quantity := 1
-	if q, ok := req["quantity"].(float64); ok {
+	if rawQuantity, exists := req["quantity"]; exists {
+		q, ok := rawQuantity.(float64)
+		if !ok {
+			respondError(w, http.StatusBadRequest, "Quantity must be an integer", "VALIDATION_ERROR")
+			return
+		}
+		if q != math.Trunc(q) {
+			respondError(w, http.StatusBadRequest, "Quantity must be an integer", "VALIDATION_ERROR")
+			return
+		}
 		quantity = int(q)
+	}
+	if quantity < 0 {
+		respondError(w, http.StatusBadRequest, "Quantity must be non-negative", "VALIDATION_ERROR")
+		return
 	}
 
 	unit, _ := req["unit"].(string)
@@ -1509,7 +1524,7 @@ func addShoppingItemHandler(w http.ResponseWriter, r *http.Request) {
 	`, householdID, userID, name, quantity, unit, category).Scan(&id, &createdAt)
 	if err != nil {
 		log.Printf("addShoppingItemHandler insert error: %v", err)
-		http.Error(w, "Failed to add shopping item", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to add shopping item", "INTERNAL_ERROR")
 		return
 	}
 
@@ -1531,32 +1546,38 @@ func addShoppingItemHandler(w http.ResponseWriter, r *http.Request) {
 // PUT /api/shopping-list/:id
 func updateShoppingItemHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
 		return
 	}
 
 	userID, err := getUserIDFromRequest(r)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		respondError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), "UNAUTHORIZED")
 		return
 	}
 
 	householdID, err := getUserHouseholdID(userID)
 	if err != nil {
-		http.Error(w, "User not in household: "+err.Error(), http.StatusNotFound)
+		respondError(w, http.StatusNotFound, "User not in household: "+err.Error(), "NOT_FOUND")
 		return
 	}
 
 	// Parse item ID from URL
 	itemID, err := strconv.Atoi(strings.TrimPrefix(r.URL.Path, "/api/shopping-list/"))
 	if err != nil {
-		http.Error(w, "Invalid item ID", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, "Invalid item ID", "INVALID_REQUEST")
 		return
 	}
 
-	var req map[string]interface{}
+	var req struct {
+		Name      *string `json:"name,omitempty"`
+		Quantity  *int    `json:"quantity,omitempty"`
+		Unit      *string `json:"unit,omitempty"`
+		Category  *string `json:"category,omitempty"`
+		Purchased *bool   `json:"purchased,omitempty"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, "Invalid request body", "INVALID_REQUEST")
 		return
 	}
 
@@ -1570,32 +1591,85 @@ func updateShoppingItemHandler(w http.ResponseWriter, r *http.Request) {
 		&existing.Unit, &existing.Category, &existing.Purchased, &existing.PurchasedAt, &existing.CreatedAt,
 	)
 	if err == sql.ErrNoRows {
-		http.Error(w, "Item not found", http.StatusNotFound)
+		respondError(w, http.StatusNotFound, "Item not found", "NOT_FOUND")
 		return
 	}
 	if err != nil {
-		http.Error(w, "Failed to fetch item", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to fetch item", "INTERNAL_ERROR")
 		return
 	}
 
-	// Update fields
-	if purchased, ok := req["purchased"].(bool); ok {
-		var purchasedAt *time.Time
-		if purchased {
-			now := time.Now()
-			purchasedAt = &now
-		}
-		_, err := db.Exec(`
-			UPDATE shopping_list
-			SET purchased = $1, purchased_at = $2, updated_at = NOW()
-			WHERE id = $3
-		`, purchased, purchasedAt, itemID)
-		if err != nil {
-			http.Error(w, "Failed to update item", http.StatusInternalServerError)
+	sets := []string{}
+	args := []interface{}{}
+	argPos := 1
+
+	if req.Name != nil {
+		if strings.TrimSpace(*req.Name) == "" {
+			respondError(w, http.StatusBadRequest, "Name cannot be empty", "VALIDATION_ERROR")
 			return
 		}
-		existing.Purchased = purchased
-		existing.PurchasedAt = purchasedAt
+		sets = append(sets, fmt.Sprintf("name=$%d", argPos))
+		args = append(args, strings.TrimSpace(*req.Name))
+		argPos++
+	}
+
+	if req.Quantity != nil {
+		if *req.Quantity < 0 {
+			respondError(w, http.StatusBadRequest, "Quantity must be non-negative", "VALIDATION_ERROR")
+			return
+		}
+		sets = append(sets, fmt.Sprintf("quantity=$%d", argPos))
+		args = append(args, *req.Quantity)
+		argPos++
+	}
+
+	if req.Unit != nil {
+		sets = append(sets, fmt.Sprintf("unit=$%d", argPos))
+		args = append(args, *req.Unit)
+		argPos++
+	}
+
+	if req.Category != nil {
+		sets = append(sets, fmt.Sprintf("category=$%d", argPos))
+		args = append(args, *req.Category)
+		argPos++
+	}
+
+	if req.Purchased != nil {
+		sets = append(sets, fmt.Sprintf("purchased=$%d", argPos))
+		args = append(args, *req.Purchased)
+		argPos++
+
+		if *req.Purchased {
+			now := time.Now()
+			sets = append(sets, fmt.Sprintf("purchased_at=$%d", argPos))
+			args = append(args, now)
+			argPos++
+		} else {
+			sets = append(sets, "purchased_at=NULL")
+		}
+	}
+
+	if len(sets) == 0 {
+		respondError(w, http.StatusBadRequest, "No fields to update", "VALIDATION_ERROR")
+		return
+	}
+
+	sets = append(sets, "updated_at=NOW()")
+	query := fmt.Sprintf(`
+		UPDATE shopping_list
+		SET %s
+		WHERE id = $%d AND household_id = $%d
+		RETURNING id, household_id, user_id, name, quantity, unit, category, purchased, purchased_at, created_at
+	`, strings.Join(sets, ", "), argPos, argPos+1)
+	args = append(args, itemID, householdID)
+
+	if err := db.QueryRow(query, args...).Scan(
+		&existing.ID, &existing.HouseholdID, &existing.UserID, &existing.Name, &existing.Quantity,
+		&existing.Unit, &existing.Category, &existing.Purchased, &existing.PurchasedAt, &existing.CreatedAt,
+	); err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to update item", "INTERNAL_ERROR")
+		return
 	}
 
 	respondJSON(w, http.StatusOK, existing)
@@ -1604,26 +1678,26 @@ func updateShoppingItemHandler(w http.ResponseWriter, r *http.Request) {
 // DELETE /api/shopping-list/:id
 func deleteShoppingItemHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
 		return
 	}
 
 	userID, err := getUserIDFromRequest(r)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		respondError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), "UNAUTHORIZED")
 		return
 	}
 
 	householdID, err := getUserHouseholdID(userID)
 	if err != nil {
-		http.Error(w, "User not in household: "+err.Error(), http.StatusNotFound)
+		respondError(w, http.StatusNotFound, "User not in household: "+err.Error(), "NOT_FOUND")
 		return
 	}
 
 	// Parse item ID from URL
 	itemID, err := strconv.Atoi(strings.TrimPrefix(r.URL.Path, "/api/shopping-list/"))
 	if err != nil {
-		http.Error(w, "Invalid item ID", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, "Invalid item ID", "INVALID_REQUEST")
 		return
 	}
 
@@ -1632,13 +1706,13 @@ func deleteShoppingItemHandler(w http.ResponseWriter, r *http.Request) {
 		WHERE id = $1 AND household_id = $2
 	`, itemID, householdID)
 	if err != nil {
-		http.Error(w, "Failed to delete item", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to delete item", "INTERNAL_ERROR")
 		return
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil || rowsAffected == 0 {
-		http.Error(w, "Item not found", http.StatusNotFound)
+		respondError(w, http.StatusNotFound, "Item not found", "NOT_FOUND")
 		return
 	}
 
@@ -1648,19 +1722,19 @@ func deleteShoppingItemHandler(w http.ResponseWriter, r *http.Request) {
 // DELETE /api/shopping-list/clear-purchased
 func clearPurchasedShoppingItemsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
 		return
 	}
 
 	userID, err := getUserIDFromRequest(r)
 	if err != nil {
-		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		respondError(w, http.StatusUnauthorized, "Unauthorized: "+err.Error(), "UNAUTHORIZED")
 		return
 	}
 
 	householdID, err := getUserHouseholdID(userID)
 	if err != nil {
-		http.Error(w, "User not in household: "+err.Error(), http.StatusNotFound)
+		respondError(w, http.StatusNotFound, "User not in household: "+err.Error(), "NOT_FOUND")
 		return
 	}
 
@@ -1669,13 +1743,13 @@ func clearPurchasedShoppingItemsHandler(w http.ResponseWriter, r *http.Request) 
 		WHERE household_id = $1 AND purchased = true
 	`, householdID)
 	if err != nil {
-		http.Error(w, "Failed to clear purchased items", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to clear purchased items", "INTERNAL_ERROR")
 		return
 	}
 
 	deletedCount, err := result.RowsAffected()
 	if err != nil {
-		http.Error(w, "Failed to clear purchased items", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to clear purchased items", "INTERNAL_ERROR")
 		return
 	}
 
