@@ -12,6 +12,12 @@ const ShoppingList: React.FC = () => {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [clearingPurchased, setClearingPurchased] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const showSuccess = (message: string) => {
+    setSuccessMessage(message);
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
 
   // Check user and handle redirects
   useEffect(() => {
@@ -82,6 +88,7 @@ const ShoppingList: React.FC = () => {
       setItems([...items, newItem]);
       setShowAddForm(false);
       (e.target as HTMLFormElement).reset();
+      showSuccess(`Added "${newItem.name}" to shopping list`);
     } catch (err) {
       const errorMsg =
         err instanceof Error ? err.message : "Failed to add item";
@@ -97,6 +104,11 @@ const ShoppingList: React.FC = () => {
         ? await shoppingListAPI.markPurchased(id)
         : await shoppingListAPI.markUnpurchased(id);
       setItems(items.map((item) => (item.id === id ? updatedItem : item)));
+      showSuccess(
+        purchased
+          ? `Marked "${updatedItem.name}" as purchased`
+          : `Marked "${updatedItem.name}" as not purchased`
+      );
     } catch (err) {
       const errorMsg =
         err instanceof Error ? err.message : "Failed to update item";
@@ -113,7 +125,9 @@ const ShoppingList: React.FC = () => {
     try {
       setError(null);
       await shoppingListAPI.deleteItem(id);
+      const deletedItem = items.find(item => item.id === id);
       setItems(items.filter((item) => item.id !== id));
+      showSuccess(`Removed "${deletedItem?.name}" from shopping list`);
     } catch (err) {
       const errorMsg =
         err instanceof Error ? err.message : "Failed to delete item";
@@ -132,7 +146,9 @@ const ShoppingList: React.FC = () => {
       setClearingPurchased(true);
       setError(null);
       await shoppingListAPI.clearPurchased();
+      const clearedCount = completedItems.length;
       setItems(items.filter((item) => !item.purchased));
+      showSuccess(`Cleared ${clearedCount} purchased item${clearedCount !== 1 ? 's' : ''}`);
     } catch (err) {
       const errorMsg =
         err instanceof Error ? err.message : "Failed to clear purchased items";
@@ -203,6 +219,13 @@ const ShoppingList: React.FC = () => {
           {error && (
             <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded text-red-700">
               {error}
+            </div>
+          )}
+
+          {/* Success Message */}
+          {successMessage && (
+            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded text-green-700">
+              {successMessage}
             </div>
           )}
 
@@ -309,19 +332,32 @@ const ShoppingList: React.FC = () => {
 
           {/* Pending Items */}
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2 mb-4">
+              <span className="text-amber-600">🛒</span>
               To Buy ({pendingItems.length})
             </h2>
             {pendingItems.length === 0 ? (
-              <div className="p-8 bg-gray-50 rounded border border-gray-200 text-center">
-                <p className="text-gray-600">No items to buy!</p>
+              <div className="p-8 bg-amber-50 rounded-lg border-2 border-dashed border-amber-200 text-center">
+                <div className="text-4xl mb-4">🎉</div>
+                <p className="text-gray-600 text-lg font-medium mb-2">
+                  All caught up!
+                </p>
+                <p className="text-gray-500 mb-4">
+                  Your shopping list is empty. Add some items to get started.
+                </p>
+                <button
+                  onClick={() => setShowAddForm(true)}
+                  className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-2 rounded font-medium"
+                >
+                  Add First Item
+                </button>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {pendingItems.map((item) => (
                   <div
                     key={item.id}
-                    className="p-4 bg-white rounded border border-gray-200"
+                    className="p-4 bg-white rounded-lg border-2 border-amber-200 shadow-sm hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-start gap-3">
                       <input
@@ -329,14 +365,14 @@ const ShoppingList: React.FC = () => {
                         checked={false}
                         onChange={() => handleMarkPurchased(item.id, true)}
                         title="Mark as purchased"
-                        className="mt-1 w-5 h-5 cursor-pointer"
+                        className="mt-1 w-5 h-5 cursor-pointer text-amber-600 focus:ring-amber-500"
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-medium text-gray-500">
+                          <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded">
                             {item.category || "Uncategorized"}
                           </span>
-                          <h3 className="font-bold text-gray-800">
+                          <h3 className="font-bold text-gray-800 flex-1">
                             {item.name}
                           </h3>
                         </div>
@@ -346,7 +382,7 @@ const ShoppingList: React.FC = () => {
                       </div>
                       <button
                         onClick={() => handleDeleteItem(item.id)}
-                        className="text-red-500 hover:text-red-700 font-semibold text-sm"
+                        className="text-red-500 hover:text-red-700 font-semibold text-sm opacity-60 hover:opacity-100 transition-opacity"
                       >
                         Delete
                       </button>
@@ -361,22 +397,23 @@ const ShoppingList: React.FC = () => {
           {completedItems.length > 0 && (
             <div className="mb-8">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold text-gray-800">
+                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                  <span className="text-green-600">✓</span>
                   Already Bought ({completedItems.length})
                 </h2>
                 <button
                   onClick={handleClearPurchased}
                   disabled={clearingPurchased}
-                  className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded font-medium transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {clearingPurchased ? "Clearing..." : "Clear Purchased"}
+                  {clearingPurchased ? "Clearing..." : "Clear All"}
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {completedItems.map((item) => (
                   <div
                     key={item.id}
-                    className="p-4 bg-gray-50 rounded border border-gray-200"
+                    className="p-4 bg-green-50 rounded-lg border-2 border-green-200 shadow-sm"
                   >
                     <div className="flex items-start gap-3">
                       <input
@@ -384,16 +421,17 @@ const ShoppingList: React.FC = () => {
                         checked={true}
                         onChange={() => handleMarkPurchased(item.id, false)}
                         title="Mark as not purchased"
-                        className="mt-1 w-5 h-5 cursor-pointer"
+                        className="mt-1 w-5 h-5 cursor-pointer text-green-600 focus:ring-green-500"
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-medium text-gray-500">
+                          <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded">
                             {item.category || "Uncategorized"}
                           </span>
-                          <h3 className="font-bold text-gray-500 line-through">
+                          <h3 className="font-bold text-gray-600 line-through flex-1">
                             {item.name}
                           </h3>
+                          <span className="text-green-600 text-lg">✓</span>
                         </div>
                         <p className="text-sm text-gray-500">
                           {item.quantity} {item.unit || "units"}
@@ -401,7 +439,7 @@ const ShoppingList: React.FC = () => {
                       </div>
                       <button
                         onClick={() => handleDeleteItem(item.id)}
-                        className="text-red-500 hover:text-red-700 font-semibold text-sm"
+                        className="text-red-500 hover:text-red-700 font-semibold text-sm opacity-60 hover:opacity-100 transition-opacity"
                       >
                         Delete
                       </button>
