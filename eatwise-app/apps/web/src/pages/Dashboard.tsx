@@ -69,6 +69,8 @@ const Dashboard: React.FC = () => {
   const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
   const [household, setHousehold] = useState<Household | null>(null);
   const [members, setMembers] = useState<HouseholdMember[]>([]);
+  const [householdLoading, setHouseholdLoading] = useState(false);
+  const [householdError, setHouseholdError] = useState<string | null>(null);
 
   const alerts = useMemo<AlertItem[]>(() => {
     const today = new Date();
@@ -138,6 +140,8 @@ const Dashboard: React.FC = () => {
 
     const fetchHousehold = async () => {
       try {
+        setHouseholdLoading(true);
+        setHouseholdError(null);
         const response = await householdAPI.getMyHousehold();
         if (response.household) {
           setHousehold(response.household);
@@ -155,21 +159,16 @@ const Dashboard: React.FC = () => {
           }));
           setMembers(householdMembers);
         } else {
-          // Fallback: set current user as member if no household
-          setMembers([
-            {
-              id: user.id,
-              name: user.full_name || user.email.split("@")[0],
-              email: user.email,
-              role: "owner",
-              joinedDate: new Date().toISOString().split("T")[0],
-              avatarColor: generateAvatarColor(user.email),
-            },
-          ]);
+          // No household found
+          setHousehold(null);
+          setMembers([]);
         }
       } catch (error) {
         console.error("Error fetching household:", error);
-        // Fallback: set current user as member on error
+        setHouseholdError(
+          error instanceof Error ? error.message : "Failed to load household"
+        );
+        // Fallback: set current user as member if no household
         setMembers([
           {
             id: user.id,
@@ -180,6 +179,8 @@ const Dashboard: React.FC = () => {
             avatarColor: generateAvatarColor(user.email),
           },
         ]);
+      } finally {
+        setHouseholdLoading(false);
       }
     };
 
@@ -355,15 +356,109 @@ const Dashboard: React.FC = () => {
               </div>
 
               <div className="bg-white rounded-lg p-5 border border-gray-200 min-w-[200px]">
-                <p className="text-sm text-gray-600">HOUSEHOLD</p>
-                <p className="text-lg font-bold text-gray-900 mt-2">
-                  {household?.name || "Personal"}
-                </p>
-                <p className="text-sm text-gray-600 mt-1">
-                  {stats.householdMembers}{" "}
-                  {stats.householdMembers === 1 ? "member" : "members"}
-                </p>
+                {householdLoading ? (
+                  <div className="animate-pulse">
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-6 bg-gray-200 rounded w-1/2"></div>
+                    <div className="h-4 bg-gray-200 rounded w-1/4 mt-1"></div>
+                  </div>
+                ) : householdError ? (
+                  <div>
+                    <p className="text-sm text-gray-600">HOUSEHOLD</p>
+                    <p className="text-lg font-bold text-red-600 mt-2">
+                      Error loading
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {householdError}
+                    </p>
+                  </div>
+                ) : household ? (
+                  <div>
+                    <p className="text-sm text-gray-600">HOUSEHOLD</p>
+                    <p className="text-lg font-bold text-gray-900 mt-2">
+                      {household.name}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {stats.householdMembers}{" "}
+                      {stats.householdMembers === 1 ? "member" : "members"}
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-gray-600">HOUSEHOLD</p>
+                    <p className="text-lg font-bold text-gray-900 mt-2">
+                      Personal
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {stats.householdMembers}{" "}
+                      {stats.householdMembers === 1 ? "member" : "members"}
+                    </p>
+                  </div>
+                )}
               </div>
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Quick Actions
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <button
+                onClick={() => navigate("/pantry-list")}
+                className="bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg p-4 text-left transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center text-white">
+                    📦
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-900">Pantry List</div>
+                    <div className="text-sm text-gray-600">
+                      View and manage pantry items
+                    </div>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => navigate("/shopping-list")}
+                className="bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg p-4 text-left transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center text-white">
+                    🛒
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-900">
+                      Shopping List
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Plan your next grocery trip
+                    </div>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => navigate("/household/manage")}
+                className="bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg p-4 text-left transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center text-white">
+                    👥
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-900">
+                      Manage Household
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Invite members and settings
+                    </div>
+                  </div>
+                </div>
+              </button>
             </div>
           </div>
 
@@ -473,33 +568,60 @@ const Dashboard: React.FC = () => {
                 <h2 className="text-lg font-bold text-gray-900 mb-4">
                   Household Members
                 </h2>
-                <div className="space-y-3">
-                  {members.map((member) => (
-                    <div key={member.id} className="flex items-center gap-3">
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${getAvatarColorClass(member.avatarColor)}`}
-                      >
-                        {member.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-semibold text-sm text-gray-900">
-                          {member.name}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {member.email}
+                {householdLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="flex items-center gap-3 animate-pulse">
+                        <div className="w-10 h-10 rounded-full bg-gray-200 rounded-full"></div>
+                        <div className="flex-1">
+                          <div className="h-4 bg-gray-200 rounded w-3/4 mb-1"></div>
+                          <div className="h-3 bg-gray-200 rounded w-1/2"></div>
                         </div>
                       </div>
-                      {(member.role === "admin" || member.role === "owner") && (
-                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-semibold">
-                          {member.role === "owner" ? "Owner" : "Admin"}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : householdError ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500 text-sm">
+                      Unable to load household members
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {householdError}
+                    </p>
+                  </div>
+                ) : members.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500 text-sm">No household members</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {members.map((member) => (
+                      <div key={member.id} className="flex items-center gap-3">
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${getAvatarColorClass(member.avatarColor)}`}
+                        >
+                          {member.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")}
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-semibold text-sm text-gray-900">
+                            {member.name}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {member.email}
+                          </div>
+                        </div>
+                        {(member.role === "admin" || member.role === "owner") && (
+                          <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-semibold">
+                            {member.role === "owner" ? "Owner" : "Admin"}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Invite Code */}
