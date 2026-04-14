@@ -883,3 +883,99 @@ func TestShoppingUpdateInvalidBodyErrorContract(t *testing.T) {
 		t.Fatalf("Expected error code INVALID_REQUEST, got %q", errResp["code"])
 	}
 }
+
+func TestShoppingUpdateCrossHouseholdNotFound(t *testing.T) {
+	requireDB(t)
+	ownerID, _ := setupTestUser(t)
+	householdID := setupTestHousehold(t, ownerID)
+	defer cleanupTestData(t, ownerID)
+
+	otherUserID, otherToken := setupTestUser(t)
+	setupTestHousehold(t, otherUserID)
+	defer cleanupTestData(t, otherUserID)
+
+	var itemID int
+	err := db.QueryRow(`
+		INSERT INTO shopping_list (household_id, user_id, name, quantity, unit, category, purchased)
+		VALUES ($1, $2, 'Owner Item', 1, 'pcs', 'General', false)
+		RETURNING id
+	`, householdID, ownerID).Scan(&itemID)
+	if err != nil {
+		t.Fatalf("Failed to seed shopping item: %v", err)
+	}
+
+	updateReq := map[string]interface{}{"name": "Hijacked"}
+	body, _ := json.Marshal(updateReq)
+	req := httptest.NewRequest("PUT", "/api/shopping-list/"+strconv.Itoa(itemID), bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+otherToken)
+
+	w := httptest.NewRecorder()
+	updateShoppingItemHandler(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("Expected status 404 for cross-household shopping update, got %d", w.Code)
+	}
+}
+
+func TestShoppingUpdateNoFieldsValidationError(t *testing.T) {
+	requireDB(t)
+	userID, token := setupTestUser(t)
+	householdID := setupTestHousehold(t, userID)
+	defer cleanupTestData(t, userID)
+
+	var itemID int
+	err := db.QueryRow(`
+		INSERT INTO shopping_list (household_id, user_id, name, quantity, unit, category, purchased)
+		VALUES ($1, $2, 'Apples', 3, 'pcs', 'Produce', false)
+		RETURNING id
+	`, householdID, userID).Scan(&itemID)
+	if err != nil {
+		t.Fatalf("Failed to seed shopping item: %v", err)
+	}
+
+	body := []byte(`{}`)
+	req := httptest.NewRequest("PUT", "/api/shopping-list/"+strconv.Itoa(itemID), bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	w := httptest.NewRecorder()
+	updateShoppingItemHandler(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("Expected status 400 for empty update body, got %d", w.Code)
+	}
+
+	var errResp map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+		t.Fatalf("Expected JSON error response, got parse error: %v", err)
+	}
+	if errResp["code"] != "VALIDATION_ERROR" {
+		t.Fatalf("Expected error code VALIDATION_ERROR, got %q", errResp["code"])
+	}
+}
+
+func TestPantryDeleteInvalidIDErrorContract(t *testing.T) {
+	requireDB(t)
+	userID, token := setupTestUser(t)
+	setupTestHousehold(t, userID)
+	defer cleanupTestData(t, userID)
+
+	req := httptest.NewRequest("DELETE", "/api/pantry/items/not-a-number", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	w := httptest.NewRecorder()
+	deletePantryHandler(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("Expected status 400 for invalid pantry item id, got %d", w.Code)
+	}
+
+	var errResp map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+		t.Fatalf("Expected JSON error response, got parse error: %v", err)
+	}
+	if errResp["code"] != "INVALID_REQUEST" {
+		t.Fatalf("Expected error code INVALID_REQUEST, got %q", errResp["code"])
+	}
+}
