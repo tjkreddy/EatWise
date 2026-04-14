@@ -381,6 +381,26 @@ Example request:
 3. `PUT /api/pantry/items/{id}`
 
 - update pantry item fields.
+- supported updatable fields:
+  - `name`
+  - `quantity`
+  - `unit`
+  - `category`
+  - `expiration_date` (empty string clears date)
+  - `notes`
+
+Example request:
+
+```json
+{
+  "name": "Milk",
+  "quantity": 1,
+  "unit": "liters",
+  "category": "Dairy",
+  "expiration_date": "2026-04-20",
+  "notes": "Use for breakfast"
+}
+```
 
 4. `DELETE /api/pantry/items/{id}`
 
@@ -409,12 +429,22 @@ Example request:
 
 3. `PUT /api/shopping-list/{id}`
 
-- update shopping item (primarily `purchased` state).
+- update shopping item fields and/or purchase state.
+- supported updatable fields:
+  - `name`
+  - `quantity`
+  - `unit`
+  - `category`
+  - `purchased`
 
 Example request:
 
 ```json
 {
+	"name": "Bread",
+	"quantity": 2,
+	"unit": "loaves",
+	"category": "Bakery",
   "purchased": true
 }
 ```
@@ -438,8 +468,16 @@ Example response:
 
 ### 4.6 Response and Error Notes
 
-1. API uses a mix of plain-text errors (`http.Error`) and JSON errors (`respondError`) depending on handler.
-2. Common HTTP status codes used:
+1. Pantry and shopping endpoints return JSON error objects via `respondError`.
+2. Error payload format:
+
+```json
+{
+  "error": "message",
+  "code": "ERROR_CODE"
+}
+```
+3. Common HTTP status codes used:
 
 - `200` success
 - `201` created
