@@ -172,29 +172,29 @@ func generateJWT(userID string) (string, error) {
 
 func signupHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
 		return
 	}
 
 	var req SignupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, "Invalid request body", "INVALID_REQUEST")
 		return
 	}
 
 	if req.Email == "" || req.Password == "" {
-		http.Error(w, "Email and password required", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, "Email and password required", "VALIDATION_ERROR")
 		return
 	}
 
 	if len(req.Password) < 6 {
-		http.Error(w, "Password must be at least 6 characters", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, "Password must be at least 6 characters", "VALIDATION_ERROR")
 		return
 	}
 
 	hash, err := hashPassword(req.Password)
 	if err != nil {
-		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to hash password", "INTERNAL_ERROR")
 		return
 	}
 
@@ -205,17 +205,17 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 	_, err = db.Exec(query, userID, req.Email, hash, req.FullName)
 	if err != nil {
 		if err.Error() == "pq: duplicate key value violates unique constraint \"users_email_key\"" {
-			http.Error(w, "Email already exists", http.StatusConflict)
+			respondError(w, http.StatusConflict, "Email already exists", "CONFLICT")
 			return
 		}
 		log.Printf("Signup error: %v", err)
-		http.Error(w, "Failed to create user", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to create user", "INTERNAL_ERROR")
 		return
 	}
 
 	token, err := generateJWT(userID)
 	if err != nil {
-		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to generate token", "INTERNAL_ERROR")
 		return
 	}
 
@@ -232,13 +232,13 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed", "METHOD_NOT_ALLOWED")
 		return
 	}
 
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		respondError(w, http.StatusBadRequest, "Invalid request body", "INVALID_REQUEST")
 		return
 	}
 
@@ -247,7 +247,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	err := db.QueryRow(query, req.Email).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.FullName, &user.CreatedAt)
 	if err != nil {
 		log.Printf("Login: User not found for email=%s, error=%v", req.Email, err)
-		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+		respondError(w, http.StatusUnauthorized, "Invalid email or password", "UNAUTHORIZED")
 		return
 	}
 
@@ -255,13 +255,13 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	if !checkPassword(req.Password, user.PasswordHash) {
 		log.Printf("Login: Password check failed for email=%s", req.Email)
-		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+		respondError(w, http.StatusUnauthorized, "Invalid email or password", "UNAUTHORIZED")
 		return
 	}
 
 	token, err := generateJWT(user.ID)
 	if err != nil {
-		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+		respondError(w, http.StatusInternalServerError, "Failed to generate token", "INTERNAL_ERROR")
 		return
 	}
 
@@ -296,6 +296,49 @@ func respondError(w http.ResponseWriter, status int, message string, code string
 		"error": message,
 		"code":  code,
 	})
+}
+
+func parseRequiredStringField(req map[string]interface{}, key string) (string, error) {
+	raw, ok := req[key]
+	if !ok {
+		return "", fmt.Errorf("%s is required", strings.Title(key))
+	}
+	value, ok := raw.(string)
+	if !ok || strings.TrimSpace(value) == "" {
+		return "", fmt.Errorf("%s is required", strings.Title(key))
+	}
+	return strings.TrimSpace(value), nil
+}
+
+func parseOptionalStringField(req map[string]interface{}, key string) (string, bool, error) {
+	raw, exists := req[key]
+	if !exists {
+		return "", false, nil
+	}
+	value, ok := raw.(string)
+	if !ok {
+		return "", false, fmt.Errorf("%s must be a string", key)
+	}
+	return strings.TrimSpace(value), true, nil
+}
+
+func parseOptionalIntegerField(req map[string]interface{}, key string) (int, bool, error) {
+	raw, exists := req[key]
+	if !exists {
+		return 0, false, nil
+	}
+	value, ok := raw.(float64)
+	if !ok {
+		return 0, false, fmt.Errorf("%s must be an integer", strings.Title(key))
+	}
+	if value != math.Trunc(value) {
+		return 0, false, fmt.Errorf("%s must be an integer", strings.Title(key))
+	}
+	parsed := int(value)
+	if parsed < 0 {
+		return 0, false, fmt.Errorf("%s must be non-negative", strings.Title(key))
+	}
+	return parsed, true, nil
 }
 
 func getUserIDFromRequest(r *http.Request) (string, error) {
@@ -1487,29 +1530,19 @@ func addShoppingItemHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	name, ok := req["name"].(string)
-	if !ok || strings.TrimSpace(name) == "" {
-		respondError(w, http.StatusBadRequest, "Name is required", "VALIDATION_ERROR")
+	name, err := parseRequiredStringField(req, "name")
+	if err != nil {
+		respondError(w, http.StatusBadRequest, err.Error(), "VALIDATION_ERROR")
 		return
 	}
-	name = strings.TrimSpace(name)
 
-	quantity := 1
-	if rawQuantity, exists := req["quantity"]; exists {
-		q, ok := rawQuantity.(float64)
-		if !ok {
-			respondError(w, http.StatusBadRequest, "Quantity must be an integer", "VALIDATION_ERROR")
-			return
-		}
-		if q != math.Trunc(q) {
-			respondError(w, http.StatusBadRequest, "Quantity must be an integer", "VALIDATION_ERROR")
-			return
-		}
-		quantity = int(q)
-	}
-	if quantity < 0 {
-		respondError(w, http.StatusBadRequest, "Quantity must be non-negative", "VALIDATION_ERROR")
+	quantity, quantityProvided, err := parseOptionalIntegerField(req, "quantity")
+	if err != nil {
+		respondError(w, http.StatusBadRequest, err.Error(), "VALIDATION_ERROR")
 		return
+	}
+	if !quantityProvided {
+		quantity = 1
 	}
 
 	unit, _ := req["unit"].(string)
@@ -1569,13 +1602,7 @@ func updateShoppingItemHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct {
-		Name      *string `json:"name,omitempty"`
-		Quantity  *int    `json:"quantity,omitempty"`
-		Unit      *string `json:"unit,omitempty"`
-		Category  *string `json:"category,omitempty"`
-		Purchased *bool   `json:"purchased,omitempty"`
-	}
+	var req map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid request body", "INVALID_REQUEST")
 		return
@@ -1603,44 +1630,55 @@ func updateShoppingItemHandler(w http.ResponseWriter, r *http.Request) {
 	args := []interface{}{}
 	argPos := 1
 
-	if req.Name != nil {
-		if strings.TrimSpace(*req.Name) == "" {
+	if rawName, exists := req["name"]; exists {
+		name, ok := rawName.(string)
+		if !ok || strings.TrimSpace(name) == "" {
 			respondError(w, http.StatusBadRequest, "Name cannot be empty", "VALIDATION_ERROR")
 			return
 		}
 		sets = append(sets, fmt.Sprintf("name=$%d", argPos))
-		args = append(args, strings.TrimSpace(*req.Name))
+		args = append(args, strings.TrimSpace(name))
 		argPos++
 	}
 
-	if req.Quantity != nil {
-		if *req.Quantity < 0 {
-			respondError(w, http.StatusBadRequest, "Quantity must be non-negative", "VALIDATION_ERROR")
+	if quantity, exists, err := parseOptionalIntegerField(req, "quantity"); err != nil {
+		respondError(w, http.StatusBadRequest, err.Error(), "VALIDATION_ERROR")
+		return
+	} else if exists {
+		sets = append(sets, fmt.Sprintf("quantity=$%d", argPos))
+		args = append(args, quantity)
+		argPos++
+	}
+
+	if unit, exists, err := parseOptionalStringField(req, "unit"); err != nil {
+		respondError(w, http.StatusBadRequest, err.Error(), "VALIDATION_ERROR")
+		return
+	} else if exists {
+		sets = append(sets, fmt.Sprintf("unit=$%d", argPos))
+		args = append(args, unit)
+		argPos++
+	}
+
+	if category, exists, err := parseOptionalStringField(req, "category"); err != nil {
+		respondError(w, http.StatusBadRequest, err.Error(), "VALIDATION_ERROR")
+		return
+	} else if exists {
+		sets = append(sets, fmt.Sprintf("category=$%d", argPos))
+		args = append(args, category)
+		argPos++
+	}
+
+	if rawPurchased, exists := req["purchased"]; exists {
+		purchased, ok := rawPurchased.(bool)
+		if !ok {
+			respondError(w, http.StatusBadRequest, "Purchased must be a boolean", "VALIDATION_ERROR")
 			return
 		}
-		sets = append(sets, fmt.Sprintf("quantity=$%d", argPos))
-		args = append(args, *req.Quantity)
-		argPos++
-	}
-
-	if req.Unit != nil {
-		sets = append(sets, fmt.Sprintf("unit=$%d", argPos))
-		args = append(args, *req.Unit)
-		argPos++
-	}
-
-	if req.Category != nil {
-		sets = append(sets, fmt.Sprintf("category=$%d", argPos))
-		args = append(args, *req.Category)
-		argPos++
-	}
-
-	if req.Purchased != nil {
 		sets = append(sets, fmt.Sprintf("purchased=$%d", argPos))
-		args = append(args, *req.Purchased)
+		args = append(args, purchased)
 		argPos++
 
-		if *req.Purchased {
+		if purchased {
 			now := time.Now()
 			sets = append(sets, fmt.Sprintf("purchased_at=$%d", argPos))
 			args = append(args, now)
