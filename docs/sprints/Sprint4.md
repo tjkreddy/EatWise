@@ -1,70 +1,68 @@
-# Sprint 4 Work Split
+# Sprint 4 Summary
 
 ## Team Members
 
 - **Jugal Kishore Reddy Thangella** – Backend Developer
-- **Sadhvini Boyanapally** – Frontend Developer (sadhvini0459@gmail.com)
-- **Hasini Jevaji** – Frontend Developer (hasinijevaji@ufl.edu)
-- **Krishna Chaitanya Padigela** – Backend Developer (padigelakrishnachaitanya@gmail.com)
+- **Sadhvini Boyanapally** – Frontend Developer
+- **Hasini Jevaji** – Frontend Developer
+- **Krishna Chaitanya Padigela** – Backend Developer
 
 ---
 
-## 1. Sprint 4 Planned Work
+## 1. Work Completed in Sprint 4
 
-Sprint 4 focuses on finishing any remaining Sprint 3 items, adding tests for new functionality, and polishing the project documentation for submission.
+In Sprint 4, we focused on enhancing the robustness of the backend API, standardizing error handling, expanding test coverage, and organizing project documentation for final delivery.
 
-### 1.1 Backend Dev 1: API Completion and Documentation
+### 1.1 Backend Enhancements & Validation
+- **Integer-Only Quantity Validation:** Implemented strict validation to ensure quantities in the shopping list and pantry are positive integers.
+- **Standardized Error Contract:** Refactored the entire API to return a consistent JSON error object containing an `error` message and a machine-readable `code`.
+- **Full-Field Updates:** Enhanced the shopping list update endpoint to support modification of name, unit, category, and quantity in a single request.
+- **Improved Input Parsing:** Developed shared helper functions (`parseOptionalIntegerField`, `parseRequiredStringField`, etc.) to unify validation logic across all handlers.
 
-**Owner:** Krishna Chaitanya Padigela
-
-- Finish any remaining backend issues discovered during Sprint 3.
-- Update the backend API documentation for any new or changed endpoints.
-- Verify route behavior and error handling on the Go API.
-- Add or adjust backend unit tests for the final API changes.
-
-### 1.2 Backend Dev 2: Test Coverage and Validation
-
-**Owner:** Jugal Kishore Reddy Thangella
-
-- Write backend unit tests for new functionality implemented in Sprint 4.
-- Confirm that all Sprint 3 backend tests still pass.
-- Validate request/response behavior for edge cases and invalid input.
-- Help prepare the backend section of the Sprint 4 report.
-
-### 1.3 Frontend Dev 1: Front Page README and User Flow Docs
-
-**Owner:** Sadhvini Boyanapally
-
-- Write the front-page README with setup, run, and usage instructions.
-- Document the requirements for running the frontend and backend locally.
-- Update user-facing instructions for the main app workflows.
-- Add or update frontend unit tests for any new UI changes.
-
-### 1.4 Frontend Dev 2: Cypress and UI Verification
-
-**Owner:** Hasini Jevaji
-
-- Write Cypress tests for the key user flows implemented in the app.
-- Verify the frontend still works after Sprint 3 changes.
-- Polish any remaining UI issues found during testing.
-- Help prepare the demo flow for the final presentation.
+### 1.2 Documentation & Organization
+- **Centralized Docs:** Moved all documentation files from application subdirectories into a root `docs/` folder, organized by category (API, Web, Sprints).
+- **Front-Page README:** Upgraded the main repository `README.md` with detailed prerequisites, installation guides, and execution instructions for the full stack.
+- **API Documentation Update:** Updated the backend API docs to reflect the new standardized error formats and enhanced shopping list capabilities.
 
 ---
 
-## 2. Sprint 4 Deliverables
+## 2. Testing Coverage
 
-1. Updated backend API documentation.
-2. New or expanded backend unit tests.
-3. Front-page README with setup and usage instructions.
-4. Frontend unit tests for new or changed functionality.
-5. Cypress tests covering the main end-to-end flows.
-6. Sprint 4 summary with individual contribution notes.
+### 2.1 Backend Unit & Integration Tests
+We have implemented 44 comprehensive tests for the Go backend, covering authentication, household management, pantry logic, and shopping list operations.
+
+**Key Tests Added/Updated in Sprint 4:**
+- `TestAddShoppingItemValidationRejectsNonIntegerQuantity`: Verifies strict type checking for item quantities.
+- `TestUpdateShoppingItemValidationRejectsNonIntegerQuantity`: Ensures updates maintain data integrity.
+- `TestShoppingUpdateAndPurchasedTogglePersistsInDB`: Integration test verifying full-field updates and database persistence.
+- `TestShoppingUpdateInvalidBodyErrorContract`: Validates the new standardized error response format.
+
+**Full Backend Test List:**
+- `TestCreateHousehold`, `TestJoinHousehold`, `TestGetHousehold`
+- `TestRemoveMember`, `TestTransferOwnership`, `TestLeaveHousehold`
+- `TestPantryCRUD`, `TestPantryUpdateAllFieldsAndValidation`
+- `TestShoppingUpdateAllFieldsAndPurchasedToggle`, `TestClearPurchasedShoppingItems`
+- `TestHashPasswordAndCheckPassword`, `TestGenerateJWTAndGetUserIDFromRequest`
+- `TestSignupValidation`, `TestLoginValidation`
+- ... (44 total tests passing)
+
+### 2.2 Frontend Unit Tests (Vitest)
+Located in `eatwise-app/apps/web/src/__tests__/`:
+- `authAPI.test.ts`: Authentication service logic.
+- `householdAPI.test.ts` & `shoppingListAPI.test.ts`: API interaction layers.
+- `Dashboard.test.tsx`, `PantryList.test.tsx`, `ShoppingList.test.tsx`: Component rendering and state.
+- `LoginPage.test.tsx`, `SignupPage.test.tsx`, `CreateHouseholdPage.test.tsx`: Page-level flows.
+
+### 2.3 Frontend E2E Tests (Cypress)
+Located in `eatwise-app/apps/web/cypress/e2e/`:
+- `eatwise.cy.ts`: Full application walkthrough.
+- `signup-flow.cy.ts`: End-to-end user registration and household creation.
+- `simple.cy.ts`: Basic sanity checks for app loading.
 
 ---
 
-## 3. Team Contribution Summary
-
-- **Krishna:** backend API cleanup, documentation, and remaining backend fixes.
-- **Jugal:** backend test coverage, validation, and report support.
-- **Sadhvini:** README documentation and frontend unit test updates.
-- **Hasini:** Cypress coverage, UI verification, and demo preparation.
+## 3. Backend API Documentation
+The updated documentation can be found in [docs/api/README.md](../api/README.md). It now includes:
+- Detailed error code tables.
+- Standardized request/response examples for all shopping list operations.
+- Corrected error response JSON structure.

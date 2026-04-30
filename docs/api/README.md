@@ -378,6 +378,157 @@ Add a new pantry item.
 
 ---
 
+## Shopping List Endpoints
+
+### GET /api/shopping-list
+
+Get all shopping list items for user's household.
+
+**Success Response (200):**
+
+```json
+[
+  {
+    "id": 1,
+    "household_id": "660e8400-e29b-41d4-a716-446655440001",
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "Apples",
+    "quantity": 3,
+    "unit": "lbs",
+    "category": "Produce",
+    "purchased": false,
+    "purchased_at": null,
+    "created_at": "2024-01-15T10:45:00Z"
+  }
+]
+```
+
+**Error Responses:**
+| Status | Code | Message | Cause |
+|--------|------|---------|-------|
+| 401 | UNAUTHORIZED | Unauthorized | Invalid/missing token |
+| 404 | NOT_FOUND | User not in any household | User must join household first |
+| 500 | INTERNAL_ERROR | Failed to fetch shopping items | Database error |
+
+---
+
+### POST /api/shopping-list
+
+Add a new item to the shopping list.
+
+**Request Body:**
+
+```json
+{
+  "name": "Apples",
+  "quantity": 3, // optional, defaults to 1
+  "unit": "lbs", // optional
+  "category": "Produce" // optional
+}
+```
+
+**Success Response (201):**
+
+```json
+{
+  "id": 1,
+  "household_id": "660e8400-e29b-41d4-a716-446655440001",
+  "user_id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "Apples",
+  "quantity": 3,
+  "unit": "lbs",
+  "category": "Produce",
+  "purchased": false,
+  "purchased_at": null,
+  "created_at": "2024-01-15T10:45:00Z"
+}
+```
+
+**Error Responses:**
+| Status | Code | Message | Cause |
+|--------|------|---------|-------|
+| 400 | VALIDATION_ERROR | Name is required | Missing name |
+| 400 | VALIDATION_ERROR | Quantity must be non-negative | Negative quantity |
+| 400 | VALIDATION_ERROR | Quantity must be an integer | Non-integer quantity |
+| 401 | UNAUTHORIZED | Unauthorized | Invalid/missing token |
+| 404 | NOT_FOUND | User not in any household | User must join household first |
+| 500 | INTERNAL_ERROR | Failed to add shopping item | Database error |
+
+---
+
+### PUT /api/shopping-list/:id
+
+Update a shopping list item (name, quantity, unit, category, or purchased status).
+
+**URL Parameters:**
+- `id` (integer): Item ID
+
+**Request Body:** (All fields optional)
+```json
+{
+  "name": "Green Apples",
+  "quantity": 5,
+  "unit": "lbs",
+  "category": "Fruits",
+  "purchased": true
+}
+```
+
+**Success Response (200):**
+
+```json
+{
+  "id": 1,
+  "household_id": "660e8400-e29b-41d4-a716-446655440001",
+  "user_id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "Green Apples",
+  "quantity": 5,
+  "unit": "lbs",
+  "category": "Fruits",
+  "purchased": true,
+  "purchased_at": "2024-01-15T11:00:00Z",
+  "created_at": "2024-01-15T10:45:00Z"
+}
+```
+
+**Error Responses:**
+| Status | Code | Message | Cause |
+|--------|------|---------|-------|
+| 400 | VALIDATION_ERROR | Name cannot be empty | Name is blank |
+| 400 | VALIDATION_ERROR | Quantity must be non-negative | Negative quantity |
+| 400 | VALIDATION_ERROR | Quantity must be an integer | Non-integer quantity |
+| 400 | VALIDATION_ERROR | Purchased must be a boolean | Invalid type |
+| 400 | VALIDATION_ERROR | No fields to update | Empty request body |
+| 404 | NOT_FOUND | Item not found | ID doesn't exist in household |
+| 500 | INTERNAL_ERROR | Failed to update item | Database error |
+
+---
+
+### DELETE /api/shopping-list/:id
+
+Delete a shopping list item.
+
+**Success Response (200):**
+```json
+{ "message": "item deleted" }
+```
+
+---
+
+### DELETE /api/shopping-list/clear-purchased
+
+Remove all items marked as `purchased: true` from the household's shopping list.
+
+**Success Response (200):**
+```json
+{
+  "message": "purchased items cleared",
+  "deleted_count": 5
+}
+```
+
+---
+
 ## Error Response Format
 
 All error responses follow this format:
@@ -385,8 +536,7 @@ All error responses follow this format:
 ```json
 {
   "error": "Error message describing what went wrong",
-  "code": "ERROR_CODE_IN_UPPERCASE",
-  "path": "/api/endpoint"
+  "code": "ERROR_CODE_IN_UPPERCASE"
 }
 ```
 
