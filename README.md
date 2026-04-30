@@ -1,6 +1,6 @@
-# PantryPal (EatWise)
+# EatWise
 
-PantryPal is a smart kitchen management application designed to reduce food waste and simplify meal planning. It helps users track pantry inventory, monitor expiration dates, and manage household supplies in a shared environment.
+EatWise is a smart kitchen management application designed to reduce food waste and simplify meal planning. It helps users track pantry inventory, monitor expiration dates, and manage household supplies in a shared environment.
 
 ---
 
