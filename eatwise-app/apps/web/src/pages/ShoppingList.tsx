@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { authAPI } from "../lib/authAPI";
 import { shoppingListAPI } from "../lib/shoppingListAPI";
+import { EmptyState } from "../components/EmptyState";
 import type { ShoppingItem } from "../types";
 
 const ShoppingList: React.FC = () => {
@@ -374,21 +375,14 @@ const ShoppingList: React.FC = () => {
               To Buy ({pendingItems.length})
             </h2>
             {pendingItems.length === 0 ? (
-              <div className="p-8 bg-amber-50 rounded-lg border-2 border-dashed border-amber-200 text-center">
-                <div className="text-4xl mb-4">🎉</div>
-                <p className="text-gray-600 text-lg font-medium mb-2">
-                  All caught up!
-                </p>
-                <p className="text-gray-500 mb-4">
-                  Your shopping list is empty. Add some items to get started.
-                </p>
-                <button
-                  onClick={() => setShowAddForm(true)}
-                  className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-2 rounded font-medium"
-                >
-                  Add First Item
-                </button>
-              </div>
+              <EmptyState
+                icon="🎉"
+                title="All caught up!"
+                description="Your shopping list is empty. Add some items to get started."
+                actionLabel="Add First Item"
+                onAction={() => setShowAddForm(true)}
+                variant="shopping"
+              />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {pendingItems.map((item) => (

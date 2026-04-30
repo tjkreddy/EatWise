@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authAPI } from "../lib/authAPI";
+import { EmptyState } from "../components/EmptyState";
 import type { PantryItem } from "../types";
 
 const API_BASE_URL =
@@ -611,21 +612,13 @@ const PantryList: React.FC = () => {
             );
           })}
           {filteredItems.length === 0 && !error && (
-            <div className="p-8 text-center text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">
-              <div className="text-4xl mb-4">📦</div>
-              <div className="text-lg font-medium mb-2">
-                No pantry items yet
-              </div>
-              <div className="text-sm mb-4">
-                Start by adding your first pantry item above
-              </div>
-              <button
-                onClick={() => setShowAddForm(true)}
-                className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded font-medium"
-              >
-                Add Your First Item
-              </button>
-            </div>
+            <EmptyState
+              icon="📦"
+              title="No pantry items yet"
+              description="Start by adding your first pantry item to track your inventory"
+              actionLabel="Add Your First Item"
+              onAction={() => setShowAddForm(true)}
+            />
           )}
         </div>
       </main>
