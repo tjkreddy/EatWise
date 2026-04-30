@@ -259,9 +259,9 @@ const ShoppingList: React.FC = () => {
           {showAddForm && (
             <form
               onSubmit={handleAddItem}
+              role="form"
               className="mb-8 p-6 bg-amber-50 rounded-lg border-2 border-amber-200"
-            >
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            >              <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Add New Shopping Item
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -354,18 +354,10 @@ const ShoppingList: React.FC = () => {
                     setFormErrors({});
                   }}
                   className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2.5 rounded font-medium transition"
-                >
+                  >
                   Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowAddForm(false)}
-                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2.5 rounded font-semibold transition"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+                  </button>
+                  </div>            </form>
           )}
 
           {/* Pending Items */}

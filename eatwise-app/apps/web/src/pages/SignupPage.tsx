@@ -65,7 +65,7 @@ const SignupPage: React.FC = () => {
           </div>
         )}
 
-        <form onSubmit={handleSignup}>
+        <form onSubmit={handleSignup} role="form">
           <div className="mb-4">
             <label
               className="block text-gray-700 text-sm font-bold mb-2"

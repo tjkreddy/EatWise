@@ -122,6 +122,7 @@ describe("authAPI", () => {
       global.fetch = vi.fn(() =>
         Promise.resolve({
           ok: false,
+          status: 401,
           text: () => Promise.resolve("Invalid credentials"),
         })
       ) as any;

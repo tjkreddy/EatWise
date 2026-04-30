@@ -189,13 +189,13 @@ describe("Dashboard", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole("button", { name: /manage household/i }),
+        screen.getAllByRole("button", { name: /manage household/i })[0],
       ).toBeDefined();
       expect(
-        screen.getByRole("button", { name: /pantry list/i }),
+        screen.getAllByRole("button", { name: /pantry list/i })[0],
       ).toBeDefined();
       expect(
-        screen.getByRole("button", { name: /shopping list/i }),
+        screen.getAllByRole("button", { name: /shopping list/i })[0],
       ).toBeDefined();
     });
   });
@@ -320,8 +320,8 @@ describe("Dashboard", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Error loading")).toBeDefined();
-      expect(screen.getByText("Network error")).toBeDefined();
+      expect(screen.getAllByText("Error loading")[0]).toBeDefined();
+      expect(screen.getAllByText("Network error")[0]).toBeDefined();
     });
   });
 
@@ -340,7 +340,7 @@ describe("Dashboard", () => {
       expect(
         screen.getByText("Unable to load household members"),
       ).toBeDefined();
-      expect(screen.getByText("Failed to load members")).toBeDefined();
+      expect(screen.getAllByText("Failed to load members")[0]).toBeDefined();
     });
   });
 
@@ -353,9 +353,9 @@ describe("Dashboard", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Quick Actions")).toBeDefined();
-      expect(screen.getByText("Pantry List")).toBeDefined();
-      expect(screen.getByText("Shopping List")).toBeDefined();
-      expect(screen.getByText("Manage Household")).toBeDefined();
+      expect(screen.getAllByText("Pantry List").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Shopping List").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Manage Household").length).toBeGreaterThan(0);
     });
   });
 

@@ -259,7 +259,23 @@ describe("LoginPage", () => {
       expect(mockNavigate).toHaveBeenCalledWith("/household-gate");
     });
   });
-});
+
+  it("should show error on failed login", async () => {
+    vi.mocked(authAPIModule.authAPI.login).mockRejectedValue(
+      new Error("Invalid credentials")
+    );
+
+    render(
+      <BrowserRouter>
+        <LoginPage />
+      </BrowserRouter>
+    );
+
+    const emailInput = screen.getByLabelText("Email");
+    const passwordInput = screen.getByLabelText("Password");
+    const submitButton = screen.getByRole("button", { name: /sign in/i });
+
+    fireEvent.change(emailInput, { target: { value: "test@example.com" } });
     fireEvent.change(passwordInput, { target: { value: "wrongpassword" } });
     fireEvent.click(submitButton);
 
