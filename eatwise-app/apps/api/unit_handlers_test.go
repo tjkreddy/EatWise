@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -263,4 +265,125 @@ func TestLoginInvalidBodyWithoutDBAccess(t *testing.T) {
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rr.Code)
 	}
+}
+
+func TestAddShoppingItemValidationRejectsNonIntegerQuantity(t *testing.T) {
+	requireDB(t)
+	userID, token := setupTestUser(t)
+	setupTestHousehold(t, userID)
+	defer cleanupTestData(t, userID)
+
+	t.Run("rejects fractional quantity", func(t *testing.T) {
+		reqBody := map[string]interface{}{
+			"name":     "Banana",
+			"quantity": 1.5,
+		}
+		body, _ := json.Marshal(reqBody)
+
+		req := httptest.NewRequest("POST", "/api/shopping-list", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		w := httptest.NewRecorder()
+		addShoppingItemHandler(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("Expected status 400, got %d", w.Code)
+		}
+
+		var errResp map[string]string
+		if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+			t.Fatalf("Expected JSON error response, got parse error: %v", err)
+		}
+		if errResp["code"] != "VALIDATION_ERROR" {
+			t.Fatalf("Expected error code VALIDATION_ERROR, got %q", errResp["code"])
+		}
+	})
+
+	t.Run("rejects string quantity", func(t *testing.T) {
+		body := []byte(`{"name":"Banana","quantity":"2"}`)
+
+		req := httptest.NewRequest("POST", "/api/shopping-list", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		w := httptest.NewRecorder()
+		addShoppingItemHandler(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("Expected status 400, got %d", w.Code)
+		}
+
+		var errResp map[string]string
+		if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+			t.Fatalf("Expected JSON error response, got parse error: %v", err)
+		}
+		if errResp["code"] != "VALIDATION_ERROR" {
+			t.Fatalf("Expected error code VALIDATION_ERROR, got %q", errResp["code"])
+		}
+	})
+}
+
+func TestUpdateShoppingItemValidationRejectsNonIntegerQuantity(t *testing.T) {
+	requireDB(t)
+	userID, token := setupTestUser(t)
+	householdID := setupTestHousehold(t, userID)
+	defer cleanupTestData(t, userID)
+
+	var itemID int
+	err := db.QueryRow(`
+		INSERT INTO shopping_list (household_id, user_id, name, quantity, unit, category, purchased)
+		VALUES ($1, $2, 'Apples', 1, 'kg', 'Produce', false)
+		RETURNING id
+	`, householdID, userID).Scan(&itemID)
+	if err != nil {
+		t.Fatalf("Failed to seed shopping item: %v", err)
+	}
+
+	t.Run("rejects fractional quantity", func(t *testing.T) {
+		reqBody := map[string]interface{}{"quantity": 2.5}
+		body, _ := json.Marshal(reqBody)
+
+		req := httptest.NewRequest("PUT", "/api/shopping-list/"+strconv.Itoa(itemID), bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		w := httptest.NewRecorder()
+		updateShoppingItemHandler(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("Expected status 400, got %d", w.Code)
+		}
+
+		var errResp map[string]string
+		if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+			t.Fatalf("Expected JSON error response, got parse error: %v", err)
+		}
+		if errResp["code"] != "VALIDATION_ERROR" {
+			t.Fatalf("Expected error code VALIDATION_ERROR, got %q", errResp["code"])
+		}
+	})
+
+	t.Run("rejects string quantity", func(t *testing.T) {
+		body := []byte(`{"quantity":"3"}`)
+
+		req := httptest.NewRequest("PUT", "/api/shopping-list/"+strconv.Itoa(itemID), bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		w := httptest.NewRecorder()
+		updateShoppingItemHandler(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("Expected status 400, got %d", w.Code)
+		}
+
+		var errResp map[string]string
+		if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+			t.Fatalf("Expected JSON error response, got parse error: %v", err)
+		}
+		if errResp["code"] != "VALIDATION_ERROR" {
+			t.Fatalf("Expected error code VALIDATION_ERROR, got %q", errResp["code"])
+		}
+	})
 }
