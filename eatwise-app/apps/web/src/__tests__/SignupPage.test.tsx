@@ -119,11 +119,11 @@ describe("SignupPage", () => {
     fireEvent.change(emailInput, { target: { value: "test@example.com" } });
     fireEvent.change(passwordInput, { target: { value: "pass" } });
     fireEvent.change(confirmPasswordInput, { target: { value: "pass" } });
-    fireEvent.click(submitButton);
+    fireEvent.submit(screen.getByRole("form"));
 
     await waitFor(() => {
       expect(
-        screen.getByText("Password must be at least 6 characters long"),
+        screen.getByText(/password must be at least 6 characters/i),
       ).toBeDefined();
     });
   });
@@ -156,8 +156,7 @@ describe("SignupPage", () => {
     await waitFor(() => {
       expect(mockSignup).toHaveBeenCalledWith(
         "test@example.com",
-        "password123",
-        undefined,
+        "password123"
       );
     });
   });

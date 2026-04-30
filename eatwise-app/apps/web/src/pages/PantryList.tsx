@@ -10,6 +10,7 @@ const API_BASE_URL =
 const PantryList: React.FC = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
+  const [items, setItems] = useState<PantryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -331,6 +332,7 @@ const PantryList: React.FC = () => {
         {showAddForm && (
           <form
             onSubmit={handleAddItem}
+            role="form"
             className="mb-6 p-6 border border-amber-200 rounded-lg bg-amber-50"
           >
             <h2 className="text-lg font-semibold text-gray-900 mb-4">

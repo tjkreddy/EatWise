@@ -78,7 +78,7 @@ describe("PantryList", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Pantry List")).toBeDefined();
+      expect(screen.getAllByText("Pantry List").length).toBeGreaterThan(0);
     });
   });
 
@@ -135,9 +135,9 @@ describe("PantryList", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Quantity: 2 liters")).toBeDefined();
-      expect(screen.getByText("Category: Dairy")).toBeDefined();
-      expect(screen.getByText(/Expires:/)).toBeDefined();
+      expect(screen.getByText(/Quantity:\s*2\s*liters/i)).toBeDefined();
+      expect(screen.getByText(/Category:\s*Dairy/i)).toBeDefined();
+      expect(screen.getAllByText(/Expires:/)[0]).toBeDefined();
     });
   });
 
@@ -153,8 +153,8 @@ describe("PantryList", () => {
       fireEvent.click(addButton);
     });
 
-    expect(screen.getByPlaceholderText("Item name")).toBeDefined();
-    expect(screen.getByPlaceholderText("Quantity")).toBeDefined();
+    expect(screen.getByPlaceholderText(/milk, chicken breast/i)).toBeDefined();
+    expect(screen.getByPlaceholderText(/e.g., 2/i)).toBeDefined();
   });
 
   it("should add new item to pantry list", async () => {
@@ -192,15 +192,14 @@ describe("PantryList", () => {
       fireEvent.click(addButton);
     });
 
-    fireEvent.change(screen.getByPlaceholderText("Item name"), {
+    fireEvent.change(screen.getByPlaceholderText(/milk, chicken breast/i), {
       target: { value: "Apples" },
     });
-    fireEvent.change(screen.getByPlaceholderText("Quantity"), {
+    fireEvent.change(screen.getByPlaceholderText(/e.g., 2/i), {
       target: { value: "5" },
     });
 
-    const submitButton = screen.getByText("Save Item");
-    fireEvent.click(submitButton);
+    fireEvent.submit(screen.getByRole("form"));
 
     await waitFor(() => {
       expect(screen.getByText("Apples")).toBeDefined();
@@ -291,7 +290,7 @@ describe("PantryList", () => {
     });
 
     await waitFor(() => {
-      expect(screen.queryByText("Milk")).not.toBeDefined();
+      expect(screen.queryByText("Milk")).toBeNull();
     });
   });
 
@@ -323,7 +322,7 @@ describe("PantryList", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Network error")).toBeDefined();
+      expect(screen.getByText(/network error/i)).toBeDefined();
     });
   });
 

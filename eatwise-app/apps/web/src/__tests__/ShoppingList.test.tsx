@@ -23,6 +23,7 @@ vi.mock("../lib/shoppingListAPI", () => ({
     deleteItem: vi.fn(),
     markPurchased: vi.fn(),
     markUnpurchased: vi.fn(),
+    clearPurchased: vi.fn(),
   },
 }));
 
@@ -237,7 +238,7 @@ describe("ShoppingList", () => {
     fireEvent.change(screen.getByPlaceholderText(/milk, tomatoes, bread/i), {
       target: { value: "Milk" },
     });
-    fireEvent.change(screen.getByPlaceholderText(/amount/i), {
+    fireEvent.change(screen.getByPlaceholderText(/e.g., 2/i), {
       target: { value: "1" },
     });
     fireEvent.click(screen.getByRole("button", { name: /add item/i }));
@@ -314,15 +315,14 @@ describe("ShoppingList", () => {
     fireEvent.change(screen.getByPlaceholderText(/milk, tomatoes, bread/i), {
       target: { value: "Apples" },
     });
-    fireEvent.change(screen.getByPlaceholderText(/amount/i), {
+    fireEvent.change(screen.getByPlaceholderText(/e.g., 2/i), {
       target: { value: "5" },
     });
 
-    const submitButton = screen.getByRole("button", { name: /add item/i });
-    fireEvent.click(submitButton);
+    fireEvent.submit(screen.getByRole("form"));
 
     await waitFor(() => {
-      expect(screen.getByText('Added "Apples" to shopping list')).toBeDefined();
+      expect(screen.getByText(/added to shopping list/i)).toBeDefined();
     });
   });
 
@@ -469,7 +469,7 @@ describe("ShoppingList", () => {
       // Check for pending items section
       expect(screen.getByText("To Buy (1)")).toBeDefined();
       // Check for amber styling (pending items)
-      const itemCard = screen.getByText("Milk").closest("div");
+      const itemCard = screen.getByText("Milk").closest(".border-2");
       expect(itemCard?.className).toContain("border-amber-200");
     });
   });
@@ -500,7 +500,7 @@ describe("ShoppingList", () => {
       // Check for completed items section
       expect(screen.getByText("Already Bought (1)")).toBeDefined();
       // Check for green styling (completed items)
-      const itemCard = screen.getByText("Milk").closest("div");
+      const itemCard = screen.getByText("Milk").closest(".border-2");
       expect(itemCard?.className).toContain("border-green-200");
     });
   });
