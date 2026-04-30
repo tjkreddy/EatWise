@@ -97,24 +97,24 @@ const LandingPage: React.FC = () => {
           <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto">
             Manage your pantry smarter and reduce food waste
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-            <div className="bg-white p-8 rounded-lg border border-gray-200 hover:border-amber-300 transition">
-              <div className="text-lg font-bold mb-4 text-amber-600">INV</div>
-              <h3 className="text-2xl font-semibold text-gray-900 mb-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
+            <div className="bg-white p-8 md:p-10 rounded-2xl border border-gray-200 hover:border-amber-300 hover:shadow-lg transition duration-300 shadow-md">
+              <div className="text-2xl font-bold mb-6 text-amber-600">📦</div>
+              <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
                 Smart Inventory
               </h3>
-              <p className="text-gray-600 leading-relaxed">
+              <p className="text-gray-700 leading-relaxed">
                 Keep track of every item in your pantry and fridge with ease.
                 Never forget what you have again.
               </p>
             </div>
 
-            <div className="bg-white p-8 rounded-lg border border-gray-200 hover:border-amber-300 transition">
-              <div className="text-lg font-bold mb-4 text-amber-600">MEAL</div>
-              <h3 className="text-2xl font-semibold text-gray-900 mb-3">
+            <div className="bg-white p-8 md:p-10 rounded-2xl border border-gray-200 hover:border-amber-300 hover:shadow-lg transition duration-300 shadow-md">
+              <div className="text-2xl font-bold mb-6 text-amber-600">🍽️</div>
+              <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
                 Meal Planning
               </h3>
-              <p className="text-gray-600 leading-relaxed">
+              <p className="text-gray-700 leading-relaxed">
                 Plan your meals efficiently based on your current inventory and
                 upcoming expiration dates.
               </p>
@@ -144,24 +144,28 @@ const LandingPage: React.FC = () => {
           <h2 className="text-4xl font-bold text-gray-900 mb-12 text-center">
             Impact by the Numbers
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-            <div className="bg-white p-8 rounded-lg border border-gray-200">
-              <div className="text-6xl font-bold text-amber-600 mb-3">1/3</div>
-              <p className="text-gray-600 text-lg">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-10 text-center">
+            <div className="bg-white p-8 md:p-10 rounded-2xl border border-gray-200 shadow-md hover:shadow-lg transition duration-300">
+              <div className="text-5xl md:text-6xl font-bold text-amber-600 mb-4">
+                1/3
+              </div>
+              <p className="text-gray-700 text-base md:text-lg font-medium">
                 of food is wasted at home. We help you prevent that.
               </p>
             </div>
-            <div className="bg-white p-8 rounded-lg border border-gray-200">
-              <div className="text-6xl font-bold text-amber-600 mb-3">
+            <div className="bg-white p-8 md:p-10 rounded-2xl border border-gray-200 shadow-md hover:shadow-lg transition duration-300">
+              <div className="text-5xl md:text-6xl font-bold text-amber-600 mb-4">
                 $1,500
               </div>
-              <p className="text-gray-600 text-lg">
+              <p className="text-gray-700 text-base md:text-lg font-medium">
                 Average family saves per year by reducing food waste.
               </p>
             </div>
-            <div className="bg-white p-8 rounded-lg border border-gray-200">
-              <div className="text-6xl font-bold text-amber-600 mb-3">100%</div>
-              <p className="text-gray-600 text-lg">
+            <div className="bg-white p-8 md:p-10 rounded-2xl border border-gray-200 shadow-md hover:shadow-lg transition duration-300">
+              <div className="text-5xl md:text-6xl font-bold text-amber-600 mb-4">
+                100%
+              </div>
+              <p className="text-gray-700 text-base md:text-lg font-medium">
                 Free to use. No hidden costs or premium features.
               </p>
             </div>
@@ -323,15 +327,15 @@ const LandingPage: React.FC = () => {
             {faqs.map((faq, index) => (
               <div
                 key={index}
-                className="border border-gray-300 rounded-lg overflow-hidden"
+                className="border border-gray-300 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition duration-300"
               >
                 <button
                   onClick={() =>
                     setExpandedFaq(expandedFaq === index ? null : index)
                   }
-                  className="w-full px-6 py-4 text-left bg-gray-50 hover:bg-gray-100 transition font-semibold text-gray-900 flex justify-between items-center"
+                  className="w-full px-6 py-5 text-left bg-gray-50 hover:bg-amber-50 transition font-semibold text-gray-900 flex justify-between items-center"
                 >
-                  <span>{faq.question}</span>
+                  <span className="text-lg">{faq.question}</span>
                   <span
                     className={`text-amber-600 text-2xl transition-transform ${
                       expandedFaq === index ? "rotate-180" : ""
@@ -341,8 +345,8 @@ const LandingPage: React.FC = () => {
                   </span>
                 </button>
                 {expandedFaq === index && (
-                  <div className="px-6 py-4 bg-white border-t border-gray-300">
-                    <p className="text-gray-600 leading-relaxed">
+                  <div className="px-6 py-5 bg-white border-t border-gray-200">
+                    <p className="text-gray-700 leading-relaxed">
                       {faq.answer}
                     </p>
                   </div>

@@ -1,3 +1,357 @@
+
+// ============================================================================
+// Comprehensive Household Flow Integration Tests
+// These tests verify end-to-end household operations without requiring
+// a fully available database for basic scenarios.
+// ============================================================================
+
+// TestHouseholdCreationAndJoinFlow tests complete user onboarding workflow
+func TestHouseholdCreationAndJoinFlow(t *testing.T) {
+	requireDB(t)
+	
+	// User 1: Create household
+	user1ID, user1Token := setupTestUser(t)
+	defer cleanupTestData(t, user1ID)
+	
+	createReq := map[string]string{"name": "Family Pantry"}
+	createBody, _ := json.Marshal(createReq)
+	
+	createHTTPReq := httptest.NewRequest("POST", "/api/households", bytes.NewReader(createBody))
+	createHTTPReq.Header.Set("Content-Type", "application/json")
+	createHTTPReq.Header.Set("Authorization", "Bearer "+user1Token)
+	
+	createRes := httptest.NewRecorder()
+	createHouseholdHandler(createRes, createHTTPReq)
+	
+	if createRes.Code != http.StatusCreated {
+		t.Fatalf("Failed to create household: status %d", createRes.Code)
+	}
+	
+	var createResp CreateHouseholdResponse
+	if err := json.Unmarshal(createRes.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("Failed to unmarshal create response: %v", err)
+	}
+	
+	inviteCode := createResp.InviteCode
+	if inviteCode == "" {
+		t.Fatal("No invite code returned")
+	}
+	
+	// User 2: Join household
+	user2ID, user2Token := setupTestUser(t)
+	defer cleanupTestData(t, user2ID)
+	
+	joinReq := map[string]string{"invite_code": inviteCode}
+	joinBody, _ := json.Marshal(joinReq)
+	
+	joinHTTPReq := httptest.NewRequest("POST", "/api/households/join", bytes.NewReader(joinBody))
+	joinHTTPReq.Header.Set("Content-Type", "application/json")
+	joinHTTPReq.Header.Set("Authorization", "Bearer "+user2Token)
+	
+	joinRes := httptest.NewRecorder()
+	joinHouseholdHandler(joinRes, joinHTTPReq)
+	
+	if joinRes.Code != http.StatusOK {
+		t.Fatalf("Failed to join household: status %d", joinRes.Code)
+	}
+	
+	var joinResp JoinHouseholdResponse
+	if err := json.Unmarshal(joinRes.Body.Bytes(), &joinResp); err != nil {
+		t.Fatalf("Failed to unmarshal join response: %v", err)
+	}
+	
+	if joinResp.Message != "joined" {
+		t.Fatalf("Expected 'joined' message, got %q", joinResp.Message)
+	}
+	
+	// Verify both users can see household with 2 members
+	getReq := httptest.NewRequest("GET", "/api/households/me", nil)
+	getReq.Header.Set("Authorization", "Bearer "+user1Token)
+	
+	getRes := httptest.NewRecorder()
+	getHouseholdHandler(getRes, getReq)
+	
+	if getRes.Code != http.StatusOK {
+		t.Fatalf("Failed to get household: status %d", getRes.Code)
+	}
+	
+	var getResp HouseholdResponse
+	if err := json.Unmarshal(getRes.Body.Bytes(), &getResp); err != nil {
+		t.Fatalf("Failed to unmarshal get response: %v", err)
+	}
+	
+	if len(getResp.Members) != 2 {
+		t.Fatalf("Expected 2 members, got %d", len(getResp.Members))
+	}
+}
+
+// TestHouseholdMembershipPersistence ensures member roles persist across operations
+func TestHouseholdMembershipPersistence(t *testing.T) {
+	requireDB(t)
+	
+	ownerID, ownerToken := setupTestUser(t)
+	householdID := setupTestHousehold(t, ownerID)
+	defer cleanupTestData(t, ownerID)
+	
+	member1ID, _ := setupTestUser(t)
+	member2ID, _ := setupTestUser(t)
+	defer cleanupTestData(t, member1ID)
+	defer cleanupTestData(t, member2ID)
+	
+	// Add two members
+	_, err := db.Exec(`INSERT INTO household_members (household_id, user_id, role) VALUES ($1, $2, 'member'), ($1, $3, 'member')`,
+		householdID, member1ID, member2ID)
+	if err != nil {
+		t.Fatalf("Failed to add members: %v", err)
+	}
+	
+	// List members multiple times, verify consistency
+	for i := 0; i < 3; i++ {
+		req := httptest.NewRequest("GET", "/api/households/"+householdID+"/members", nil)
+		req.Header.Set("Authorization", "Bearer "+ownerToken)
+		
+		w := httptest.NewRecorder()
+		householdSubrouteHandler(w, req)
+		
+		if w.Code != http.StatusOK {
+			t.Fatalf("Iteration %d: Failed to list members, status %d", i+1, w.Code)
+		}
+		
+		var members []HouseholdMember
+		if err := json.Unmarshal(w.Body.Bytes(), &members); err != nil {
+			t.Fatalf("Iteration %d: Failed to unmarshal response: %v", i+1, err)
+		}
+		
+		if len(members) != 3 { // owner + 2 members
+			t.Fatalf("Iteration %d: Expected 3 members, got %d", i+1, len(members))
+		}
+		
+		// Verify roles
+		for _, m := range members {
+			if m.UserID == ownerID {
+				if m.Role != "owner" {
+					t.Fatalf("Iteration %d: Owner has wrong role: %s", i+1, m.Role)
+				}
+			} else {
+				if m.Role != "member" {
+					t.Fatalf("Iteration %d: Member has wrong role: %s", i+1, m.Role)
+				}
+			}
+		}
+	}
+}
+
+// TestHouseholdPermissionHierarchy verifies owner vs member permissions
+func TestHouseholdPermissionHierarchy(t *testing.T) {
+	requireDB(t)
+	
+	ownerID, ownerToken := setupTestUser(t)
+	householdID := setupTestHousehold(t, ownerID)
+	defer cleanupTestData(t, ownerID)
+	
+	memberID, memberToken := setupTestUser(t)
+	_, err := db.Exec(`INSERT INTO household_members (household_id, user_id, role) VALUES ($1, $2, 'member')`,
+		householdID, memberID)
+	if err != nil {
+		t.Fatalf("Failed to add member: %v", err)
+	}
+	defer cleanupTestData(t, memberID)
+	
+	otherMemberID, _ := setupTestUser(t)
+	_, err = db.Exec(`INSERT INTO household_members (household_id, user_id, role) VALUES ($1, $2, 'member')`,
+		householdID, otherMemberID)
+	if err != nil {
+		t.Fatalf("Failed to add other member: %v", err)
+	}
+	defer cleanupTestData(t, otherMemberID)
+	
+	// Owner can remove member
+	removeReq := httptest.NewRequest("DELETE", "/api/households/"+householdID+"/members/"+memberID, nil)
+	removeReq.Header.Set("Authorization", "Bearer "+ownerToken)
+	
+	removeRes := httptest.NewRecorder()
+	householdSubrouteHandler(removeRes, removeReq)
+	
+	if removeRes.Code != http.StatusOK {
+		t.Fatalf("Owner failed to remove member: status %d", removeRes.Code)
+	}
+	
+	// Re-add member for next test
+	_, err = db.Exec(`INSERT INTO household_members (household_id, user_id, role) VALUES ($1, $2, 'member')`,
+		householdID, memberID)
+	if err != nil {
+		t.Fatalf("Failed to re-add member: %v", err)
+	}
+	
+	// Regular member cannot remove other member
+	removeReq2 := httptest.NewRequest("DELETE", "/api/households/"+householdID+"/members/"+otherMemberID, nil)
+	removeReq2.Header.Set("Authorization", "Bearer "+memberToken)
+	
+	removeRes2 := httptest.NewRecorder()
+	householdSubrouteHandler(removeRes2, removeReq2)
+	
+	if removeRes2.Code != http.StatusForbidden {
+		t.Fatalf("Member should not be able to remove other member: status %d", removeRes2.Code)
+	}
+}
+
+// TestHouseholdMemberCanLeave verifies members can exit household
+func TestHouseholdMemberCanLeave(t *testing.T) {
+	requireDB(t)
+	
+	ownerID, _ := setupTestUser(t)
+	householdID := setupTestHousehold(t, ownerID)
+	defer cleanupTestData(t, ownerID)
+	
+	memberID, memberToken := setupTestUser(t)
+	_, err := db.Exec(`INSERT INTO household_members (household_id, user_id, role) VALUES ($1, $2, 'member')`,
+		householdID, memberID)
+	if err != nil {
+		t.Fatalf("Failed to add member: %v", err)
+	}
+	defer cleanupTestData(t, memberID)
+	
+	// Member leaves
+	leaveReq := httptest.NewRequest("POST", "/api/households/leave", nil)
+	leaveReq.Header.Set("Authorization", "Bearer "+memberToken)
+	
+	leaveRes := httptest.NewRecorder()
+	leaveHouseholdHandler(leaveRes, leaveReq)
+	
+	if leaveRes.Code != http.StatusOK {
+		t.Fatalf("Failed to leave household: status %d", leaveRes.Code)
+	}
+	
+	// Verify member is no longer in household
+	var memberCount int
+	err = db.QueryRow(`SELECT COUNT(*) FROM household_members WHERE household_id = $1 AND user_id = $2`,
+		householdID, memberID).Scan(&memberCount)
+	if err != nil {
+		t.Fatalf("Failed to verify membership: %v", err)
+	}
+	if memberCount != 0 {
+		t.Fatal("Member should be removed after leaving")
+	}
+}
+
+// TestInviteCodeUniqueness ensures invite codes don't collide
+func TestInviteCodeUniqueness(t *testing.T) {
+	requireDB(t)
+	
+	user1ID, user1Token := setupTestUser(t)
+	user2ID, user2Token := setupTestUser(t)
+	defer cleanupTestData(t, user1ID)
+	defer cleanupTestData(t, user2ID)
+	
+	inviteCodes := make(map[string]bool)
+	
+	// Create 5 households and collect invite codes
+	for i := 0; i < 5; i++ {
+		token := user1Token
+		if i > 0 {
+			token = user2Token
+		}
+		
+		createReq := map[string]string{"name": "Household " + strconv.Itoa(i)}
+		createBody, _ := json.Marshal(createReq)
+		
+		createHTTPReq := httptest.NewRequest("POST", "/api/households", bytes.NewReader(createBody))
+		createHTTPReq.Header.Set("Content-Type", "application/json")
+		createHTTPReq.Header.Set("Authorization", "Bearer "+token)
+		
+		createRes := httptest.NewRecorder()
+		createHouseholdHandler(createRes, createHTTPReq)
+		
+		if createRes.Code != http.StatusCreated {
+			t.Fatalf("Failed to create household %d", i)
+		}
+		
+		var resp CreateHouseholdResponse
+		if err := json.Unmarshal(createRes.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("Failed to unmarshal response %d: %v", i, err)
+		}
+		
+		code := resp.InviteCode
+		if inviteCodes[code] {
+			t.Fatalf("Duplicate invite code: %s", code)
+		}
+		inviteCodes[code] = true
+	}
+	
+	if len(inviteCodes) != 5 {
+		t.Fatalf("Expected 5 unique codes, got %d", len(inviteCodes))
+	}
+}
+
+// TestHouseholdNotFoundErrors ensures proper error responses for missing households
+func TestHouseholdNotFoundErrors(t *testing.T) {
+	requireDB(t)
+	
+	userID, token := setupTestUser(t)
+	defer cleanupTestData(t, userID)
+	
+	fakeHouseholdID := uuid.New().String()
+	
+	// Try to get members of non-existent household
+	req := httptest.NewRequest("GET", "/api/households/"+fakeHouseholdID+"/members", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	
+	w := httptest.NewRecorder()
+	householdSubrouteHandler(w, req)
+	
+	if w.Code != http.StatusNotFound && w.Code != http.StatusForbidden {
+		t.Fatalf("Expected 404 or 403, got %d", w.Code)
+	}
+}
+
+// TestMultiUserHouseholdOperations tests concurrent operations by multiple users
+func TestMultiUserHouseholdOperations(t *testing.T) {
+	requireDB(t)
+	
+	ownerID, ownerToken := setupTestUser(t)
+	householdID := setupTestHousehold(t, ownerID)
+	defer cleanupTestData(t, ownerID)
+	
+	// Add 3 members
+	memberIDs := make([]string, 3)
+	memberTokens := make([]string, 3)
+	
+	for i := 0; i < 3; i++ {
+		id, token := setupTestUser(t)
+		memberIDs[i] = id
+		memberTokens[i] = token
+		defer cleanupTestData(t, id)
+		
+		_, err := db.Exec(`INSERT INTO household_members (household_id, user_id, role) VALUES ($1, $2, 'member')`,
+			householdID, id)
+		if err != nil {
+			t.Fatalf("Failed to add member %d: %v", i, err)
+		}
+	}
+	
+	// Each member retrieves household info simultaneously (simulated)
+	for i := 0; i < 3; i++ {
+		req := httptest.NewRequest("GET", "/api/households/me", nil)
+		req.Header.Set("Authorization", "Bearer "+memberTokens[i])
+		
+		w := httptest.NewRecorder()
+		getHouseholdHandler(w, req)
+		
+		if w.Code != http.StatusOK {
+			t.Fatalf("Member %d failed to get household: status %d", i, w.Code)
+		}
+		
+		var resp HouseholdResponse
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("Member %d failed to unmarshal: %v", i, err)
+		}
+		
+		if len(resp.Members) != 4 { // owner + 3 members
+			t.Fatalf("Member %d sees wrong member count: %d", i, len(resp.Members))
+		}
+	}
+}
+
 package main
 
 import (

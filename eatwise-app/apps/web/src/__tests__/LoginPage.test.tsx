@@ -13,6 +13,7 @@ vi.mock("../lib/authAPI", () => ({
     getToken: vi.fn(),
     isAuthenticated: vi.fn(),
     signup: vi.fn(),
+    verifyToken: vi.fn(),
   },
 }));
 
@@ -64,6 +65,16 @@ describe("LoginPage", () => {
     expect(screen.getByRole("link", { name: /sign up/i })).toBeDefined();
   });
 
+  it("should have link to welcome page", () => {
+    render(
+      <BrowserRouter>
+        <LoginPage />
+      </BrowserRouter>
+    );
+
+    expect(screen.getByRole("link", { name: /back to welcome/i })).toBeDefined();
+  });
+
   it("should fill form fields with input", () => {
     render(
       <BrowserRouter>
@@ -84,7 +95,7 @@ describe("LoginPage", () => {
   it("should call authAPI.login on form submit", async () => {
     const mockLogin = vi.fn().mockResolvedValue({
       token: "test-token",
-      user: { id: "user-123", email: "test@example.com" },
+      user: { id: "user-123", email: "test@example.com", full_name: "Test User", created_at: "2024-01-01" },
     });
     vi.mocked(authAPIModule.authAPI.login).mockImplementation(mockLogin);
 
@@ -110,7 +121,7 @@ describe("LoginPage", () => {
   it("should navigate to household-gate on successful login", async () => {
     const mockLogin = vi.fn().mockResolvedValue({
       token: "test-token",
-      user: { id: "user-123", email: "test@example.com" },
+      user: { id: "user-123", email: "test@example.com", full_name: "Test User", created_at: "2024-01-01" },
     });
     vi.mocked(authAPIModule.authAPI.login).mockImplementation(mockLogin);
 
@@ -148,6 +159,107 @@ describe("LoginPage", () => {
     const submitButton = screen.getByRole("button", { name: /sign in/i });
 
     fireEvent.change(emailInput, { target: { value: "test@example.com" } });
+    fireEvent.change(passwordInput, { target: { value: "wrongpassword" } });
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(screen.getByText("Invalid credentials")).toBeDefined();
+    });
+  });
+
+  it("should handle network errors gracefully", async () => {
+    const mockLogin = vi.fn().mockRejectedValue(new Error("Network error. Please check your connection and try again."));
+    vi.mocked(authAPIModule.authAPI.login).mockImplementation(mockLogin);
+
+    render(
+      <BrowserRouter>
+        <LoginPage />
+      </BrowserRouter>
+    );
+
+    const emailInput = screen.getByLabelText("Email");
+    const passwordInput = screen.getByLabelText("Password");
+    const submitButton = screen.getByRole("button", { name: /sign in/i });
+
+    fireEvent.change(emailInput, { target: { value: "test@example.com" } });
+    fireEvent.change(passwordInput, { target: { value: "password123" } });
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(screen.getByText("Network error. Please check your connection and try again.")).toBeDefined();
+    });
+  });
+
+  it("should show loading state during form submission", async () => {
+    const mockLogin = vi.fn().mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => resolve({
+        token: "test-token",
+        user: { id: "user-123", email: "test@example.com", full_name: "Test User", created_at: "2024-01-01" },
+      }), 100))
+    );
+    vi.mocked(authAPIModule.authAPI.login).mockImplementation(mockLogin);
+
+    render(
+      <BrowserRouter>
+        <LoginPage />
+      </BrowserRouter>
+    );
+
+    const emailInput = screen.getByLabelText("Email");
+    const passwordInput = screen.getByLabelText("Password");
+    const submitButton = screen.getByRole("button", { name: /sign in/i }) as HTMLButtonElement;
+
+    fireEvent.change(emailInput, { target: { value: "test@example.com" } });
+    fireEvent.change(passwordInput, { target: { value: "password123" } });
+    fireEvent.click(submitButton);
+
+    // Button should show loading text and be disabled
+    expect(submitButton.disabled).toBe(true);
+    expect(screen.getByText("Signing In...")).toBeDefined();
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/household-gate");
+    });
+  });
+
+  it("should clear error message on new form submission attempt", async () => {
+    const mockLogin = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Invalid credentials"))
+      .mockResolvedValueOnce({
+        token: "test-token",
+        user: { id: "user-123", email: "test@example.com", full_name: "Test User", created_at: "2024-01-01" },
+      });
+    vi.mocked(authAPIModule.authAPI.login).mockImplementation(mockLogin);
+
+    render(
+      <BrowserRouter>
+        <LoginPage />
+      </BrowserRouter>
+    );
+
+    const emailInput = screen.getByLabelText("Email");
+    const passwordInput = screen.getByLabelText("Password");
+    const submitButton = screen.getByRole("button", { name: /sign in/i });
+
+    // First submission fails
+    fireEvent.change(emailInput, { target: { value: "test@example.com" } });
+    fireEvent.change(passwordInput, { target: { value: "wrongpassword" } });
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(screen.getByText("Invalid credentials")).toBeDefined();
+    });
+
+    // Second submission with correct password
+    fireEvent.change(passwordInput, { target: { value: "password123" } });
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/household-gate");
+    });
+  });
+});
     fireEvent.change(passwordInput, { target: { value: "wrongpassword" } });
     fireEvent.click(submitButton);
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { authAPI } from "../lib/authAPI";
 import { shoppingListAPI } from "../lib/shoppingListAPI";
+import { EmptyState } from "../components/EmptyState";
 import type { ShoppingItem } from "../types";
 
 const ShoppingList: React.FC = () => {
@@ -11,6 +12,7 @@ const ShoppingList: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [clearingPurchased, setClearingPurchased] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -60,27 +62,40 @@ const ShoppingList: React.FC = () => {
 
   const handleAddItem = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
+    setFormErrors({});
+    setError(null);
 
-    const name = formData.get("name") as string;
-    const quantity = parseInt(formData.get("quantity") as string);
+    const formData = new FormData(e.currentTarget);
+    const name = (formData.get("name") as string)?.trim();
+    const quantityStr = formData.get("quantity") as string;
+    const quantity = parseInt(quantityStr);
+
+    const errors: Record<string, string> = {};
+
+    if (!name) {
+      errors.name = "Item name is required";
+    } else if (name.length < 2) {
+      errors.name = "Name must be at least 2 characters";
+    }
+
+    if (!quantityStr) {
+      errors.quantity = "Quantity is required";
+    } else if (isNaN(quantity) || quantity <= 0) {
+      errors.quantity = "Quantity must be a positive number";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
     const unit = (formData.get("unit") as string) || undefined;
     const category = (formData.get("category") as string) || undefined;
-
-    if (!name?.trim()) {
-      setError("Item name is required");
-      return;
-    }
-
-    if (Number.isNaN(quantity) || quantity <= 0) {
-      setError("Quantity must be a positive number");
-      return;
-    }
 
     try {
       setError(null);
       const newItem = await shoppingListAPI.addItem({
-        name: name.trim(),
+        name,
         quantity,
         unit,
         category,
@@ -88,7 +103,7 @@ const ShoppingList: React.FC = () => {
       setItems([...items, newItem]);
       setShowAddForm(false);
       (e.target as HTMLFormElement).reset();
-      showSuccess(`Added "${newItem.name}" to shopping list`);
+      showSuccess(`✓ "${newItem.name}" added to shopping list`);
     } catch (err) {
       const errorMsg =
         err instanceof Error ? err.message : "Failed to add item";
@@ -107,7 +122,7 @@ const ShoppingList: React.FC = () => {
       showSuccess(
         purchased
           ? `Marked "${updatedItem.name}" as purchased`
-          : `Marked "${updatedItem.name}" as not purchased`
+          : `Marked "${updatedItem.name}" as not purchased`,
       );
     } catch (err) {
       const errorMsg =
@@ -125,7 +140,7 @@ const ShoppingList: React.FC = () => {
     try {
       setError(null);
       await shoppingListAPI.deleteItem(id);
-      const deletedItem = items.find(item => item.id === id);
+      const deletedItem = items.find((item) => item.id === id);
       setItems(items.filter((item) => item.id !== id));
       showSuccess(`Removed "${deletedItem?.name}" from shopping list`);
     } catch (err) {
@@ -148,7 +163,9 @@ const ShoppingList: React.FC = () => {
       await shoppingListAPI.clearPurchased();
       const clearedCount = completedItems.length;
       setItems(items.filter((item) => !item.purchased));
-      showSuccess(`Cleared ${clearedCount} purchased item${clearedCount !== 1 ? 's' : ''}`);
+      showSuccess(
+        `Cleared ${clearedCount} purchased item${clearedCount !== 1 ? "s" : ""}`,
+      );
     } catch (err) {
       const errorMsg =
         err instanceof Error ? err.message : "Failed to clear purchased items";
@@ -217,14 +234,14 @@ const ShoppingList: React.FC = () => {
         <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
           {/* Error Message */}
           {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded text-red-700">
-              {error}
+            <div className="mb-4 p-4 bg-red-50 border border-red-300 rounded-lg text-red-800 text-sm font-medium">
+              ✗ {error}
             </div>
           )}
 
           {/* Success Message */}
           {successMessage && (
-            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded text-green-700">
+            <div className="mb-4 p-4 bg-green-50 border border-green-300 rounded-lg text-green-800 text-sm font-medium">
               {successMessage}
             </div>
           )}
@@ -242,35 +259,46 @@ const ShoppingList: React.FC = () => {
           {showAddForm && (
             <form
               onSubmit={handleAddItem}
-              className="mb-8 p-6 bg-white rounded border-2 border-amber-200"
+              className="mb-8 p-6 bg-amber-50 rounded-lg border-2 border-amber-200"
             >
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Add New Shopping Item
               </h3>
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="col-span-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Item Name *
+                    Item Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     name="name"
                     placeholder="e.g., Milk, Tomatoes, Bread"
-                    className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    className={`w-full p-2.5 border rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent ${formErrors.name ? "border-red-500 bg-red-50" : "border-gray-300"}`}
                     required
                   />
+                  {formErrors.name && (
+                    <p className="text-red-600 text-xs mt-1">
+                      {formErrors.name}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Quantity *
+                    Quantity <span className="text-red-500">*</span>
                   </label>
                   <input
                     name="quantity"
                     type="number"
                     min="1"
-                    placeholder="Amount"
-                    className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    step="0.1"
+                    placeholder="e.g., 2"
+                    className={`w-full p-2.5 border rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent ${formErrors.quantity ? "border-red-500 bg-red-50" : "border-gray-300"}`}
                     required
                   />
+                  {formErrors.quantity && (
+                    <p className="text-red-600 text-xs mt-1">
+                      {formErrors.quantity}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -290,7 +318,7 @@ const ShoppingList: React.FC = () => {
                     <option>tablespoons</option>
                   </select>
                 </div>
-                <div className="col-span-2">
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Category
                   </label>
@@ -312,12 +340,22 @@ const ShoppingList: React.FC = () => {
                   </select>
                 </div>
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-2 mt-4">
                 <button
                   type="submit"
-                  className="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-2.5 rounded font-semibold transition"
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded font-medium transition"
                 >
-                  Add Item
+                  ✓ Add Item
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setFormErrors({});
+                  }}
+                  className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2.5 rounded font-medium transition"
+                >
+                  Cancel
                 </button>
                 <button
                   type="button"
@@ -337,21 +375,14 @@ const ShoppingList: React.FC = () => {
               To Buy ({pendingItems.length})
             </h2>
             {pendingItems.length === 0 ? (
-              <div className="p-8 bg-amber-50 rounded-lg border-2 border-dashed border-amber-200 text-center">
-                <div className="text-4xl mb-4">🎉</div>
-                <p className="text-gray-600 text-lg font-medium mb-2">
-                  All caught up!
-                </p>
-                <p className="text-gray-500 mb-4">
-                  Your shopping list is empty. Add some items to get started.
-                </p>
-                <button
-                  onClick={() => setShowAddForm(true)}
-                  className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-2 rounded font-medium"
-                >
-                  Add First Item
-                </button>
-              </div>
+              <EmptyState
+                icon="🎉"
+                title="All caught up!"
+                description="Your shopping list is empty. Add some items to get started."
+                actionLabel="Add First Item"
+                onAction={() => setShowAddForm(true)}
+                variant="shopping"
+              />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {pendingItems.map((item) => (

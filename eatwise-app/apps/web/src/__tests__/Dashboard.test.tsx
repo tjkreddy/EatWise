@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
-import Dashboard from "../pages/Dashboard";
+import Dashboard, { filterPantryItems } from "../pages/Dashboard";
 import * as authAPIModule from "../lib/authAPI";
 import * as householdAPIModule from "../lib/householdAPI";
 
@@ -42,6 +42,29 @@ describe("Dashboard", () => {
     full_name: "Test User",
   };
 
+  const mockPantryItems = [
+    {
+      id: 1,
+      name: "Milk",
+      quantity: 2,
+      unit: "liters",
+      category: "Dairy",
+      expiration_date: "2026-04-30",
+      notes: "Breakfast milk",
+      created_at: "2026-04-01T00:00:00Z",
+    },
+    {
+      id: 2,
+      name: "Apples",
+      quantity: 6,
+      unit: "pieces",
+      category: "Fruits",
+      expiration_date: "2026-05-10",
+      notes: "Snack stash",
+      created_at: "2026-04-02T00:00:00Z",
+    },
+  ];
+
   const mockHousehold = {
     household: {
       id: "household-123",
@@ -73,6 +96,13 @@ describe("Dashboard", () => {
     vi.mocked(authAPIModule.authAPI.getUser).mockReturnValue(mockUser);
     vi.mocked(householdAPIModule.householdAPI.getMyHousehold).mockResolvedValue(
       mockHousehold,
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => mockPantryItems,
+      }),
     );
   });
 
@@ -259,9 +289,9 @@ describe("Dashboard", () => {
 
   it("should show loading state for household data", async () => {
     // Mock getMyHousehold to never resolve to keep loading state
-    vi.mocked(householdAPIModule.householdAPI.getMyHousehold).mockImplementation(
-      () => new Promise(() => {}),
-    );
+    vi.mocked(
+      householdAPIModule.householdAPI.getMyHousehold,
+    ).mockImplementation(() => new Promise(() => {}));
 
     render(
       <BrowserRouter>
@@ -307,7 +337,9 @@ describe("Dashboard", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Unable to load household members")).toBeDefined();
+      expect(
+        screen.getByText("Unable to load household members"),
+      ).toBeDefined();
       expect(screen.getByText("Failed to load members")).toBeDefined();
     });
   });
@@ -335,7 +367,9 @@ describe("Dashboard", () => {
     );
 
     await waitFor(() => {
-      const pantryButton = screen.getByText("Pantry List");
+      const pantryButton = screen.getAllByRole("button", {
+        name: /pantry list/i,
+      })[1];
       fireEvent.click(pantryButton);
     });
 
@@ -350,7 +384,9 @@ describe("Dashboard", () => {
     );
 
     await waitFor(() => {
-      const shoppingButton = screen.getByText("Shopping List");
+      const shoppingButton = screen.getAllByRole("button", {
+        name: /shopping list/i,
+      })[1];
       fireEvent.click(shoppingButton);
     });
 
@@ -365,7 +401,9 @@ describe("Dashboard", () => {
     );
 
     await waitFor(() => {
-      const manageButton = screen.getByText("Manage Household");
+      const manageButton = screen.getAllByRole("button", {
+        name: /manage household/i,
+      })[1];
       fireEvent.click(manageButton);
     });
 
@@ -373,9 +411,11 @@ describe("Dashboard", () => {
   });
 
   it("should display personal household when no household exists", async () => {
-    vi.mocked(householdAPIModule.householdAPI.getMyHousehold).mockResolvedValue({
-      household: undefined,
-    });
+    vi.mocked(householdAPIModule.householdAPI.getMyHousehold).mockResolvedValue(
+      {
+        household: undefined,
+      },
+    );
 
     render(
       <BrowserRouter>
@@ -386,5 +426,36 @@ describe("Dashboard", () => {
     await waitFor(() => {
       expect(screen.getByText("Personal")).toBeDefined();
     });
+  });
+
+  it("should filter pantry items and expose accessible search controls", async () => {
+    const milkMatches = filterPantryItems(
+      mockPantryItems as never[],
+      "milk",
+      "All",
+    );
+    const fruitMatches = filterPantryItems(
+      mockPantryItems as never[],
+      "",
+      "Fruits",
+    );
+
+    expect(milkMatches).toHaveLength(1);
+    expect(milkMatches[0].name).toBe("Milk");
+    expect(fruitMatches).toHaveLength(1);
+    expect(fruitMatches[0].name).toBe("Apples");
+
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>,
+    );
+
+    expect(
+      screen.getByRole("searchbox", { name: /search pantry items/i }),
+    ).toBeDefined();
+    expect(
+      screen.getByRole("combobox", { name: /filter pantry by category/i }),
+    ).toBeDefined();
   });
 });

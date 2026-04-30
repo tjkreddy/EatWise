@@ -62,15 +62,43 @@ const normalizeCategory = (category?: string): CategoryKey => {
   return "Uncategorized";
 };
 
+export const filterPantryItems = (
+  pantryItems: PantryItem[],
+  searchTerm: string,
+  categoryFilter: CategoryKey | "All",
+) => {
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+
+  return pantryItems.filter((item) => {
+    const itemText = [item.name, item.category, item.notes]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    const matchesSearch =
+      !normalizedSearchTerm || itemText.includes(normalizedSearchTerm);
+    const matchesCategory =
+      categoryFilter === "All" ||
+      normalizeCategory(item.category) === categoryFilter;
+
+    return matchesSearch && matchesCategory;
+  });
+};
+
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<CategoryKey | "All">(
+    "All",
+  );
   const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
   const [household, setHousehold] = useState<Household | null>(null);
   const [members, setMembers] = useState<HouseholdMember[]>([]);
   const [householdLoading, setHouseholdLoading] = useState(false);
   const [householdError, setHouseholdError] = useState<string | null>(null);
+
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
 
   const alerts = useMemo<AlertItem[]>(() => {
     const today = new Date();
@@ -120,6 +148,18 @@ const Dashboard: React.FC = () => {
     return counts;
   }, [pantryItems]);
 
+  const filteredPantryItems = useMemo(
+    () => filterPantryItems(pantryItems, searchTerm, categoryFilter),
+    [categoryFilter, pantryItems, searchTerm],
+  );
+
+  const filteredAlerts = useMemo(() => {
+    return alerts.filter((alert) => {
+      const alertText = alert.itemName.toLowerCase();
+      return !normalizedSearchTerm || alertText.includes(normalizedSearchTerm);
+    });
+  }, [alerts, normalizedSearchTerm]);
+
   // Check user and handle redirects
   useEffect(() => {
     const checkUser = () => {
@@ -166,7 +206,7 @@ const Dashboard: React.FC = () => {
       } catch (error) {
         console.error("Error fetching household:", error);
         setHouseholdError(
-          error instanceof Error ? error.message : "Failed to load household"
+          error instanceof Error ? error.message : "Failed to load household",
         );
         // Fallback: set current user as member if no household
         setMembers([
@@ -309,13 +349,49 @@ const Dashboard: React.FC = () => {
         {/* Header */}
         <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
           <div className="px-8 py-4 flex items-center justify-between">
-            <div className="flex-1 max-w-md">
-              <input
-                type="text"
-                placeholder="Search your pantry..."
-                className="w-full px-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-            </div>
+            <form
+              className="flex-1 max-w-2xl"
+              role="search"
+              aria-label="Search pantry items"
+              onSubmit={(event) => event.preventDefault()}
+            >
+              <label htmlFor="dashboard-search" className="sr-only">
+                Search pantry items
+              </label>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <input
+                  id="dashboard-search"
+                  type="search"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search pantry items, categories, or notes"
+                  aria-describedby="dashboard-search-help"
+                  className="w-full rounded-xl border border-transparent bg-gray-100 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+                <select
+                  aria-label="Filter pantry by category"
+                  value={categoryFilter}
+                  onChange={(event) =>
+                    setCategoryFilter(event.target.value as CategoryKey | "All")
+                  }
+                  className="w-full rounded-xl border border-transparent bg-gray-100 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 sm:w-56"
+                >
+                  <option value="All">All categories</option>
+                  {CATEGORY_KEYS.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div
+                id="dashboard-search-help"
+                className="mt-2 text-xs text-gray-500"
+              >
+                Search the pantry overview and expiry notices by item name,
+                category, or notes.
+              </div>
+            </form>
 
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-3">
@@ -414,7 +490,9 @@ const Dashboard: React.FC = () => {
                     📦
                   </div>
                   <div>
-                    <div className="font-semibold text-gray-900">Pantry List</div>
+                    <div className="font-semibold text-gray-900">
+                      Pantry List
+                    </div>
                     <div className="text-sm text-gray-600">
                       View and manage pantry items
                     </div>
@@ -552,12 +630,91 @@ const Dashboard: React.FC = () => {
                         </div>
                       </div>
                     ))}
-                  {alerts.filter((a) => a.severity !== "info").length === 0 && (
+                  {filteredAlerts.filter((a) => a.severity !== "info")
+                    .length === 0 && (
                     <p className="text-gray-500 text-sm text-center py-4">
-                      All items are still fresh!
+                      {normalizedSearchTerm
+                        ? "No expiry notices match your search."
+                        : "All items are still fresh!"}
                     </p>
                   )}
                 </div>
+              </div>
+
+              <div className="bg-white rounded-lg p-6 border border-gray-200">
+                <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">
+                      Pantry Items
+                    </h2>
+                    <p className="text-sm text-gray-500">
+                      Showing {filteredPantryItems.length} of{" "}
+                      {pantryItems.length} items
+                    </p>
+                  </div>
+                  {(normalizedSearchTerm || categoryFilter !== "All") && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchTerm("");
+                        setCategoryFilter("All");
+                      }}
+                      className="text-sm font-medium text-green-700 hover:text-green-800"
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                </div>
+
+                {filteredPantryItems.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-6 text-center">
+                    <p className="font-medium text-gray-900">
+                      No pantry items found
+                    </p>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Try a different search term or category filter.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {filteredPantryItems.map((item) => (
+                      <article
+                        key={item.id}
+                        className="rounded-xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-5 shadow-sm"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-900">
+                              {item.name}
+                            </h3>
+                            <p className="text-sm text-gray-500">
+                              {item.quantity} {item.unit || "units"}
+                            </p>
+                          </div>
+                          <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
+                            {item.category || "Uncategorized"}
+                          </span>
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap gap-2 text-xs text-gray-600">
+                          {item.expirationDate && (
+                            <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-700">
+                              Expires{" "}
+                              {new Date(
+                                item.expirationDate,
+                              ).toLocaleDateString()}
+                            </span>
+                          )}
+                          {item.notes && (
+                            <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-700">
+                              {item.notes}
+                            </span>
+                          )}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Household Members */}
@@ -571,7 +728,10 @@ const Dashboard: React.FC = () => {
                 {householdLoading ? (
                   <div className="space-y-3">
                     {[1, 2].map((i) => (
-                      <div key={i} className="flex items-center gap-3 animate-pulse">
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 animate-pulse"
+                      >
                         <div className="w-10 h-10 rounded-full bg-gray-200 rounded-full"></div>
                         <div className="flex-1">
                           <div className="h-4 bg-gray-200 rounded w-3/4 mb-1"></div>
@@ -591,7 +751,9 @@ const Dashboard: React.FC = () => {
                   </div>
                 ) : members.length === 0 ? (
                   <div className="text-center py-4">
-                    <p className="text-gray-500 text-sm">No household members</p>
+                    <p className="text-gray-500 text-sm">
+                      No household members
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -613,7 +775,8 @@ const Dashboard: React.FC = () => {
                             {member.email}
                           </div>
                         </div>
-                        {(member.role === "admin" || member.role === "owner") && (
+                        {(member.role === "admin" ||
+                          member.role === "owner") && (
                           <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-semibold">
                             {member.role === "owner" ? "Owner" : "Admin"}
                           </span>

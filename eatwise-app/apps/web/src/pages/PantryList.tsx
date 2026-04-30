@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authAPI } from "../lib/authAPI";
+import { EmptyState } from "../components/EmptyState";
 import type { PantryItem } from "../types";
 
 const API_BASE_URL =
@@ -11,7 +12,8 @@ const PantryList: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [items, setItems] = useState<PantryItem[]>([]);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingItem, setEditingItem] = useState<PantryItem | null>(null);
 
@@ -72,25 +74,42 @@ const PantryList: React.FC = () => {
 
   const handleAddItem = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setFormErrors({});
+    setError(null);
+    setSuccess(null);
+
     const formData = new FormData(e.currentTarget);
+    const name = (formData.get("name") as string)?.trim();
+    const quantityStr = formData.get("quantity") as string;
+    const quantity = parseInt(quantityStr);
+
+    const errors: Record<string, string> = {};
+
+    if (!name) {
+      errors.name = "Item name is required";
+    } else if (name.length < 2) {
+      errors.name = "Name must be at least 2 characters";
+    }
+
+    if (!quantityStr) {
+      errors.quantity = "Quantity is required";
+    } else if (isNaN(quantity) || quantity <= 0) {
+      errors.quantity = "Quantity must be a positive number";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
     const newItem = {
-      name: formData.get("name") as string,
-      quantity: parseInt(formData.get("quantity") as string),
+      name,
+      quantity,
       unit: formData.get("unit") as string,
       category: formData.get("category") as string,
       expirationDate: (formData.get("expirationDate") as string) || undefined,
       notes: (formData.get("notes") as string) || undefined,
     };
-
-    if (!newItem.name?.trim()) {
-      setError("Name is required");
-      return;
-    }
-
-    if (Number.isNaN(newItem.quantity)) {
-      setError("Quantity is required");
-      return;
-    }
 
     try {
       setError(null);
@@ -135,6 +154,8 @@ const PantryList: React.FC = () => {
 
       setShowAddForm(false);
       (e.target as HTMLFormElement).reset();
+      setSuccess(`✓ "${newItem.name}" added to pantry`);
+      setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add item");
     }
@@ -187,21 +208,24 @@ const PantryList: React.FC = () => {
     try {
       setError(null);
       const token = authAPI.getToken();
-      const response = await fetch(`${API_BASE_URL}/api/pantry/items/${editingItem.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const response = await fetch(
+        `${API_BASE_URL}/api/pantry/items/${editingItem.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: updatedItem.name,
+            quantity: updatedItem.quantity,
+            unit: updatedItem.unit,
+            category: updatedItem.category,
+            expiration_date: updatedItem.expirationDate || "",
+            notes: updatedItem.notes,
+          }),
         },
-        body: JSON.stringify({
-          name: updatedItem.name,
-          quantity: updatedItem.quantity,
-          unit: updatedItem.unit,
-          category: updatedItem.category,
-          expiration_date: updatedItem.expirationDate || "",
-          notes: updatedItem.notes,
-        }),
-      });
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -209,22 +233,24 @@ const PantryList: React.FC = () => {
       }
 
       const saved = await response.json();
-      setItems((prev) => prev.map((item) =>
-        item.id === editingItem.id
-          ? {
-              id: saved.id,
-              name: saved.name,
-              quantity: saved.quantity,
-              unit: saved.unit,
-              category: saved.category,
-              expirationDate: saved.expiration_date || saved.expirationDate,
-              addedDate: saved.created_at
-                ? String(saved.created_at).split("T")[0]
-                : item.addedDate,
-              notes: saved.notes,
-            }
-          : item
-      ));
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === editingItem.id
+            ? {
+                id: saved.id,
+                name: saved.name,
+                quantity: saved.quantity,
+                unit: saved.unit,
+                category: saved.category,
+                expirationDate: saved.expiration_date || saved.expirationDate,
+                addedDate: saved.created_at
+                  ? String(saved.created_at).split("T")[0]
+                  : item.addedDate,
+                notes: saved.notes,
+              }
+            : item,
+        ),
+      );
 
       setEditingItem(null);
     } catch (err) {
@@ -281,8 +307,14 @@ const PantryList: React.FC = () => {
 
       <main className="max-w-4xl mx-auto p-6">
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-            {error}
+          <div className="mb-4 p-4 bg-red-50 border border-red-300 rounded-lg text-red-800 text-sm font-medium">
+            ✗ {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-4 p-4 bg-green-50 border border-green-300 rounded-lg text-green-800 text-sm font-medium">
+            {success}
           </div>
         )}
 
@@ -299,69 +331,124 @@ const PantryList: React.FC = () => {
         {showAddForm && (
           <form
             onSubmit={handleAddItem}
-            className="mb-6 p-5 border border-amber-200 rounded bg-amber-50"
+            className="mb-6 p-6 border border-amber-200 rounded-lg bg-amber-50"
           >
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              Add New Item
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <input
-                name="name"
-                placeholder="Item name"
-                className="p-2 border rounded"
-                required
-              />
-              <input
-                name="quantity"
-                type="number"
-                placeholder="Quantity"
-                className="p-2 border rounded"
-                required
-              />
-              <select name="unit" className="p-2 border rounded" title="Unit">
-                <option value="">Select unit</option>
-                <option value="pieces">pieces</option>
-                <option value="grams">grams</option>
-                <option value="kg">kg</option>
-                <option value="ml">ml</option>
-                <option value="liters">liters</option>
-                <option value="cups">cups</option>
-                <option value="tbsp">tbsp</option>
-                <option value="tsp">tsp</option>
-                <option value="packets">packets</option>
-              </select>
-              <select
-                name="category"
-                className="p-2 border rounded"
-                title="Category"
-              >
-                <option value="">Select category</option>
-                <option value="Dairy">Dairy</option>
-                <option value="Vegetables">Vegetables</option>
-                <option value="Fruits">Fruits</option>
-                <option value="Grains">Grains</option>
-                <option value="Meat">Meat</option>
-                <option value="Condiments">Condiments</option>
-                <option value="Snacks">Snacks</option>
-                <option value="Beverages">Beverages</option>
-                <option value="Frozen">Frozen</option>
-                <option value="Uncategorized">Uncategorized</option>
-              </select>
-              <input
-                name="expirationDate"
-                type="date"
-                title="Expiration date"
-                className="p-2 border rounded"
-              />
-              <input
-                name="notes"
-                placeholder="Notes"
-                className="p-2 border rounded"
-              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Item Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  name="name"
+                  placeholder="e.g., Milk, Chicken Breast"
+                  className={`w-full p-2 border rounded ${formErrors.name ? "border-red-500 bg-red-50" : "border-gray-300"}`}
+                  required
+                />
+                {formErrors.name && (
+                  <p className="text-red-600 text-xs mt-1">{formErrors.name}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Quantity <span className="text-red-500">*</span>
+                </label>
+                <input
+                  name="quantity"
+                  type="number"
+                  placeholder="e.g., 2"
+                  step="0.1"
+                  className={`w-full p-2 border rounded ${formErrors.quantity ? "border-red-500 bg-red-50" : "border-gray-300"}`}
+                  required
+                />
+                {formErrors.quantity && (
+                  <p className="text-red-600 text-xs mt-1">
+                    {formErrors.quantity}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Unit
+                </label>
+                <select
+                  name="unit"
+                  className="w-full p-2 border border-gray-300 rounded"
+                >
+                  <option value="">Select unit</option>
+                  <option value="pieces">pieces</option>
+                  <option value="grams">grams</option>
+                  <option value="kg">kg</option>
+                  <option value="ml">ml</option>
+                  <option value="liters">liters</option>
+                  <option value="cups">cups</option>
+                  <option value="tbsp">tbsp</option>
+                  <option value="tsp">tsp</option>
+                  <option value="packets">packets</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Category
+                </label>
+                <select
+                  name="category"
+                  className="w-full p-2 border border-gray-300 rounded"
+                >
+                  <option value="">Select category</option>
+                  <option value="Dairy">Dairy</option>
+                  <option value="Vegetables">Vegetables</option>
+                  <option value="Fruits">Fruits</option>
+                  <option value="Grains">Grains</option>
+                  <option value="Meat">Meat</option>
+                  <option value="Condiments">Condiments</option>
+                  <option value="Snacks">Snacks</option>
+                  <option value="Beverages">Beverages</option>
+                  <option value="Frozen">Frozen</option>
+                  <option value="Uncategorized">Uncategorized</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Expiration Date
+                </label>
+                <input
+                  name="expirationDate"
+                  type="date"
+                  className="w-full p-2 border border-gray-300 rounded"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notes
+                </label>
+                <input
+                  name="notes"
+                  placeholder="e.g., Keep refrigerated"
+                  className="w-full p-2 border border-gray-300 rounded"
+                />
+              </div>
             </div>
-            <button
-              type="submit"
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
-            >
-              Save Item
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-medium transition"
+              >
+                ✓ Save Item
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddForm(false);
+                  setFormErrors({});
+                }}
+                className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded font-medium transition"
+              >
+                Cancel
+              </button>
+            </div>
           </form>
         )}
 
@@ -389,7 +476,12 @@ const PantryList: React.FC = () => {
                 className="p-2 border rounded"
                 required
               />
-              <select name="unit" className="p-2 border rounded" title="Unit" defaultValue={editingItem.unit || ""}>
+              <select
+                name="unit"
+                className="p-2 border rounded"
+                title="Unit"
+                defaultValue={editingItem.unit || ""}
+              >
                 <option value="">Select unit</option>
                 <option value="pieces">pieces</option>
                 <option value="grams">grams</option>
@@ -452,22 +544,31 @@ const PantryList: React.FC = () => {
 
         <div className="space-y-3">
           {filteredItems.map((item) => {
-            const isExpired = item.expirationDate && new Date(item.expirationDate) < new Date();
-            const isExpiringSoon = item.expirationDate && !isExpired && 
-              (new Date(item.expirationDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24) <= 7;
+            const isExpired =
+              item.expirationDate && new Date(item.expirationDate) < new Date();
+            const isExpiringSoon =
+              item.expirationDate &&
+              !isExpired &&
+              (new Date(item.expirationDate).getTime() - new Date().getTime()) /
+                (1000 * 60 * 60 * 24) <=
+                7;
 
             return (
               <div
                 key={item.id}
                 className={`flex items-center justify-between p-4 border border-gray-200 rounded-lg ${
-                  isExpired ? 'bg-red-50 border-red-200' : 
-                  isExpiringSoon ? 'bg-yellow-50 border-yellow-200' : 
-                  'bg-white'
+                  isExpired
+                    ? "bg-red-50 border-red-200"
+                    : isExpiringSoon
+                      ? "bg-yellow-50 border-yellow-200"
+                      : "bg-white"
                 }`}
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="font-semibold text-gray-900">{item.name}</span>
+                    <span className="font-semibold text-gray-900">
+                      {item.name}
+                    </span>
                     {isExpired && (
                       <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
                         EXPIRED
@@ -480,10 +581,15 @@ const PantryList: React.FC = () => {
                     )}
                   </div>
                   <div className="text-sm text-gray-600 space-y-1">
-                    <div>Quantity: {item.quantity} {item.unit || 'units'}</div>
+                    <div>
+                      Quantity: {item.quantity} {item.unit || "units"}
+                    </div>
                     {item.category && <div>Category: {item.category}</div>}
                     {item.expirationDate && (
-                      <div>Expires: {new Date(item.expirationDate).toLocaleDateString()}</div>
+                      <div>
+                        Expires:{" "}
+                        {new Date(item.expirationDate).toLocaleDateString()}
+                      </div>
                     )}
                     {item.notes && <div>Notes: {item.notes}</div>}
                   </div>
@@ -506,17 +612,13 @@ const PantryList: React.FC = () => {
             );
           })}
           {filteredItems.length === 0 && !error && (
-            <div className="p-8 text-center text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">
-              <div className="text-4xl mb-4">📦</div>
-              <div className="text-lg font-medium mb-2">No pantry items yet</div>
-              <div className="text-sm mb-4">Start by adding your first pantry item above</div>
-              <button
-                onClick={() => setShowAddForm(true)}
-                className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded font-medium"
-              >
-                Add Your First Item
-              </button>
-            </div>
+            <EmptyState
+              icon="📦"
+              title="No pantry items yet"
+              description="Start by adding your first pantry item to track your inventory"
+              actionLabel="Add Your First Item"
+              onAction={() => setShowAddForm(true)}
+            />
           )}
         </div>
       </main>
