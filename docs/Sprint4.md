@@ -5,7 +5,7 @@
 - **Jugal Kishore Reddy Thangella** – Backend Developer
 - **Sadhvini Boyanapally** – Frontend Developer (sadhvini0459@gmail.com)
 - **Hasini Jevaji** – Frontend Developer (hasinijevaji@ufl.edu)
-- **Krishna Chaitanya Padigela** – Backend Developer
+- **Krishna Chaitanya Padigela** – Backend Developer (padigelakrishnachaitanya@gmail.com)
 
 ---
 
